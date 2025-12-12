@@ -239,8 +239,8 @@
       position:absolute;
       top:50%;
       left:0; right:0;
-      height:3px;
-      background:rgba(0,0,0,0.06);
+      height:2px;
+      background:rgba(0,0,0,0.04);
       pointer-events:none;
       z-index:5;
     }
@@ -249,11 +249,11 @@
       left: 50%;
       top: 50%;
       transform: translate(-50%, -50%);
-      font-size: 72px;
-      font-weight: 700;
-      color: #64748b;
-      line-height: 1;
-      margin-top: -8px;
+      width: 14px;
+      height: 14px;
+      background: #475569;
+      border-radius: 50%;
+      margin-top: 35px;
     }
 
     /* === MULTIPLICATION CHART MODAL === */
@@ -344,6 +344,7 @@
       color: var(--whole-text);
     }
     .comma-block{ width:20px; align-items:flex-end; padding-bottom:15px; }
+    .decimal-block{ width:20px; font-size:48px; font-weight:700; align-items:flex-end; padding-bottom:12px; }
 
     /* Decimal tiles */
     .tile.decimal-tile {
@@ -373,6 +374,7 @@
     </div>
     
     <div class="dash-group">
+      <button class="btn" id="expandBtn"><span class="btn-icon">💥</span> Expand</button>
       <button class="btn" id="toggleChartBtn"><span class="btn-icon">✖️</span> Chart</button>
       <button class="btn btn-success" id="challengeBtn"><span class="btn-icon">🎯</span> Challenge</button>
     </div>
@@ -412,7 +414,7 @@
     </div>
 
     <div id="workPane">
-      <div id="snapLine"><span class="decimal-point">.</span></div>
+      <div id="snapLine"><div class="decimal-point"></div></div>
     </div>
 
     <div id="bottomDock">
@@ -672,15 +674,22 @@
       return value < 1;
     }
 
-    function getDigitsArray(value, forTray = false) {
+    function getDigitsArray(value, showFullDecimal = false) {
       let str;
       if (value < 1) {
-        // For decimal values, just return the digit(s) - no leading decimal
+        // Decimal values
         if (value < 0.01) str = value.toFixed(3);
         else if (value < 0.1) str = value.toFixed(2);
         else str = value.toFixed(1);
-        const parts = str.split('.');
-        return parts[1].split(''); // Just the decimal digits, no dot
+        
+        if (showFullDecimal) {
+          // Show full decimal: "0.2" or "0.02"
+          return str.split('');
+        } else {
+          // Just the significant digit(s) for snapped cards
+          const parts = str.split('.');
+          return parts[1].split('');
+        }
       } else {
         str = String(Math.floor(value));
       }
@@ -724,11 +733,28 @@
       
       const snapY = (paneRect.height / 2) - (BLOCK_HEIGHT / 2);
       const centerX = pointRect.left - paneRect.left + (pointRect.width / 2);
-      const cardWidth = getCardWidth(placeValue);
+      
+      const DECIMAL_SPACING = 15; // Space between cards and decimal point
       
       const isDecimal = ['thousandths','hundredths','tenths'].includes(placeValue);
-      // Whole numbers snap to LEFT of decimal, decimals snap to RIGHT
-      return isDecimal ? { x: centerX + 5, y: snapY } : { x: centerX - cardWidth - 5, y: snapY };
+      
+      if (isDecimal) {
+        // Decimals go to the RIGHT of the decimal point
+        // tenths is closest, hundredths next, etc.
+        const decimalOrder = { tenths: 0, hundredths: 1, thousandths: 2 };
+        const offset = decimalOrder[placeValue] * BLOCK_SIZE;
+        return { x: centerX + DECIMAL_SPACING + offset, y: snapY };
+      } else {
+        // Whole numbers go to the LEFT of the decimal point
+        // ones is closest, then tens, hundreds, etc.
+        const wholeOrder = { ones: 0, tens: 1, hundreds: 2, thousands: 3, tenThousands: 4, hundredThousands: 5, millions: 6 };
+        const offset = wholeOrder[placeValue] * BLOCK_SIZE;
+        // Additional offset for commas in thousands+
+        let commaOffset = 0;
+        if (['thousands', 'tenThousands', 'hundredThousands'].includes(placeValue)) commaOffset = 20;
+        if (['millions'].includes(placeValue)) commaOffset = 40;
+        return { x: centerX - DECIMAL_SPACING - BLOCK_SIZE - offset - commaOffset, y: snapY };
+      }
     }
 
     function findOverlayTarget(dropX, dropY, droppedPlaceValue, excludeId) {
@@ -781,8 +807,10 @@
     function createTile(value, source) {
       const el = document.createElement('div');
       const placeValue = getPlaceValueType(value);
-      const digits = getDigitsArray(value);
       const isDecimal = isDecimalValue(value);
+      // Tray cards show full decimal (0.2), workspace cards don't
+      const showFullDecimal = (source === 'tray') && isDecimal;
+      const digits = getDigitsArray(value, showFullDecimal);
 
       el.className = `tile${isDecimal ? ' decimal-tile' : ''}`;
       el.dataset.value = value;
@@ -792,6 +820,9 @@
         if (char === ',') { 
           d.className = 'digit-block comma-block'; 
           d.textContent = ','; 
+        } else if (char === '.') {
+          d.className = 'digit-block decimal-block';
+          d.textContent = '.';
         } else { 
           d.className = 'digit-block'; 
           d.textContent = char; 
@@ -820,8 +851,10 @@
 
       sortedTiles.forEach(tile => {
         sum += tile.value;
-        const digits = getDigitsArray(tile.value);
         const isDecimal = isDecimalValue(tile.value);
+        // Show full decimal for floating cards, just digits for snapped
+        const showFullDecimal = isDecimal && !tile.snappedToLine;
+        const digits = getDigitsArray(tile.value, showFullDecimal);
 
         const el = document.createElement('div');
         el.className = `tile work-pane-tile${isDecimal ? ' decimal-tile' : ''}`;
@@ -834,6 +867,9 @@
           if (char === ',') { 
             d.className = 'digit-block comma-block'; 
             d.textContent = ','; 
+          } else if (char === '.') {
+            d.className = 'digit-block decimal-block';
+            d.textContent = '.';
           } else { 
             d.className = 'digit-block'; 
             d.textContent = char; 
@@ -916,12 +952,16 @@
       g.className = `tile${isDecimal ? ' decimal-tile' : ''} dragging`;
       g.dataset.dragging = 'true';
 
-      const digits = getDigitsArray(draggedTile.value);
+      // Always show full decimal while dragging
+      const digits = getDigitsArray(draggedTile.value, isDecimal);
       digits.forEach(char => {
         const d = document.createElement('div');
         if (char === ',') { 
           d.className = 'digit-block comma-block'; 
           d.textContent = ','; 
+        } else if (char === '.') {
+          d.className = 'digit-block decimal-block';
+          d.textContent = '.';
         } else { 
           d.className = 'digit-block'; 
           d.textContent = char; 
@@ -945,23 +985,32 @@
         let dropY = e.clientY - paneRect.top - dragOffset.y;
 
         const snapLinePos = getSnapLinePosition(draggedTile.placeValue);
-        const distanceToLine = Math.abs(dropY - snapLinePos.y);
+        const distanceToLine = Math.sqrt(
+          Math.pow(dropX - snapLinePos.x, 2) + 
+          Math.pow(dropY - snapLinePos.y, 2)
+        );
 
-        let finalX, finalY, parentId = null;
+        let finalX, finalY;
+        let snappedToLine = false;
         const order = getPlaceValueOrder(draggedTile.placeValue);
         let zIndex = 1000 + order;
 
         if (distanceToLine < SNAP_LINE_DISTANCE) {
           finalX = snapLinePos.x;
           finalY = snapLinePos.y;
+          snappedToLine = true;
+          
+          // Remove any existing tile of the same place value on the snap line
+          tiles = tiles.filter(t => {
+            if (t.id === draggedTile.id) return true; // Don't filter out the tile we're moving
+            if (t.placeValue === draggedTile.placeValue && t.snappedToLine) {
+              return false; // Remove existing same-place-value tile
+            }
+            return true;
+          });
         } else {
-          const overlay = findOverlayTarget(dropX, dropY, draggedTile.placeValue, 
-            draggedTile.sourceType === 'pane' ? draggedTile.id : null);
-          if (overlay) {
-            finalX = overlay.snapX; finalY = overlay.snapY; parentId = overlay.tile.id;
-          } else {
-            finalX = dropX; finalY = dropY;
-          }
+          finalX = dropX;
+          finalY = dropY;
         }
 
         if (draggedTile.sourceType === 'tray') {
@@ -969,12 +1018,17 @@
             id: Date.now() + Math.random(),
             value: draggedTile.value,
             placeValue: draggedTile.placeValue,
-            x: finalX, y: finalY, parentId, zIndex
+            x: finalX, y: finalY, 
+            snappedToLine,
+            zIndex
           });
         } else {
           const existing = tiles.find(t => t.id === draggedTile.id);
           if (existing) {
-            existing.x = finalX; existing.y = finalY; existing.parentId = parentId; existing.zIndex = zIndex;
+            existing.x = finalX; 
+            existing.y = finalY; 
+            existing.snappedToLine = snappedToLine;
+            existing.zIndex = zIndex;
           }
         }
       } else if (draggedTile.sourceType === 'pane') {
@@ -1039,6 +1093,53 @@
     document.getElementById('toggleChartBtn').addEventListener('click', () => {
       const chart = document.getElementById('multChart');
       chart.style.display = chart.style.display === 'block' ? 'none' : 'block';
+    });
+
+    // Expand to show place values
+    document.getElementById('expandBtn').addEventListener('click', () => {
+      // Get all tiles snapped to line
+      const snappedTiles = tiles.filter(t => t.snappedToLine);
+      if (snappedTiles.length === 0) return;
+      
+      // Convert each tile to its expanded form (e.g., 3 in tens place = 30)
+      const expandedTiles = [];
+      const workPane = document.getElementById('workPane');
+      const paneRect = workPane.getBoundingClientRect();
+      
+      // Calculate starting position for expanded layout
+      const startY = 50;
+      let currentY = startY;
+      const ROW_HEIGHT = BLOCK_HEIGHT + 20;
+      
+      // Sort by place value order (largest first)
+      snappedTiles.sort((a, b) => {
+        const orderA = getPlaceValueOrder(a.placeValue);
+        const orderB = getPlaceValueOrder(b.placeValue);
+        // Lower order number = larger place value
+        return orderA - orderB;
+      });
+      
+      snappedTiles.forEach((tile, index) => {
+        // Get the actual expanded value
+        const expandedValue = tile.value;
+        const placeValue = tile.placeValue;
+        
+        expandedTiles.push({
+          id: Date.now() + Math.random(),
+          value: expandedValue,
+          placeValue: placeValue,
+          x: 50,
+          y: currentY,
+          snappedToLine: false,
+          zIndex: 1000 + index
+        });
+        
+        currentY += ROW_HEIGHT;
+      });
+      
+      // Replace tiles with expanded versions
+      tiles = expandedTiles;
+      renderWorkPane();
     });
 
     document.querySelectorAll('.drawer-tab').forEach(tab => {
