@@ -125,8 +125,8 @@
       position: relative;
       height: 65px; 
       cursor: ns-resize;
-      overflow: hidden; 
-      margin: 5px 30px 0 30px;
+      overflow: visible; 
+      margin: 5px 50px 0 50px;
     }
     
     .number-line {
@@ -755,15 +755,45 @@
       
       // Plus signs for expanded view
       if (isExpanded && snappedTiles.length > 1) {
-        const sorted = [...snappedTiles].sort((a, b) => a.x - b.x);
         const paneHeight = workPane.getBoundingClientRect().height;
-        for (let i = 0; i < sorted.length - 1; i++) {
-          const currentTile = sorted[i];
-          const nextTile = sorted[i + 1];
-          const currentWidth = getExpandedCardWidth(currentTile.value);
-          // Position plus sign between cards
-          const plusX = currentTile.x + currentWidth + 10;
-          const plusY = (paneHeight / 2) - (BLOCK_HEIGHT / 2);
+        const plusY = (paneHeight / 2) - (BLOCK_HEIGHT / 2);
+        
+        // Separate tiles into wholes and decimals
+        const wholeTiles = snappedTiles.filter(t => !isDecimalValue(t.value)).sort((a, b) => b.x - a.x); // right to left
+        const decimalTiles = snappedTiles.filter(t => isDecimalValue(t.value)).sort((a, b) => a.x - b.x); // left to right
+        
+        // Plus signs between whole number cards (right to left, so between each pair)
+        for (let i = 0; i < wholeTiles.length - 1; i++) {
+          const rightTile = wholeTiles[i];
+          const leftTile = wholeTiles[i + 1];
+          const plusX = leftTile.x + getExpandedCardWidth(leftTile.value) + 10;
+          
+          const plus = document.createElement('div');
+          plus.className = 'plus-sign';
+          plus.textContent = '+';
+          plus.style.left = plusX + 'px';
+          plus.style.top = plusY + 'px';
+          workPane.appendChild(plus);
+        }
+        
+        // Plus sign between wholes and decimals (if both exist)
+        if (wholeTiles.length > 0 && decimalTiles.length > 0) {
+          // Get the rightmost whole tile (ones position)
+          const rightmostWhole = wholeTiles[0];
+          const plusX = rightmostWhole.x + getExpandedCardWidth(rightmostWhole.value) + 10;
+          
+          const plus = document.createElement('div');
+          plus.className = 'plus-sign';
+          plus.textContent = '+';
+          plus.style.left = plusX + 'px';
+          plus.style.top = plusY + 'px';
+          workPane.appendChild(plus);
+        }
+        
+        // Plus signs between decimal cards (left to right)
+        for (let i = 0; i < decimalTiles.length - 1; i++) {
+          const leftTile = decimalTiles[i];
+          const plusX = leftTile.x + getExpandedCardWidth(leftTile.value) + 10;
           
           const plus = document.createElement('div');
           plus.className = 'plus-sign';
