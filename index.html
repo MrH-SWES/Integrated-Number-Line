@@ -26,7 +26,7 @@
 
     body{font-family:'Lexend',sans-serif;background:var(--bg);color:var(--ink);height:100vh;overflow:hidden;touch-action:manipulation; user-select: none;}
 
-    #app{position:relative;height:100%;width:100%; display:flex; flex-direction:column;}
+    #app{position:relative;height:calc(100% - 60px);width:100%; display:flex; flex-direction:column;}
 
     /* === TOP DASHBOARD === */
     #dashboard {
@@ -243,12 +243,18 @@
       background:rgba(0,0,0,0.1);
       pointer-events:none;
       z-index:5;
-      display:flex; align-items:center; justify-content:center;
     }
-    #snapLine::after{
-      content:'.';
-      font-size: 60px; font-weight: 900; color: #111827;
-      margin-bottom: 20px; text-shadow: 0 2px 0 rgba(255,255,255,1);
+    #snapLine .decimal-point {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 80px;
+      font-weight: 900;
+      color: #111827;
+      text-shadow: 0 2px 0 rgba(255,255,255,1);
+      line-height: 1;
+      margin-top: -10px;
     }
 
     /* === MULTIPLICATION CHART MODAL === */
@@ -337,7 +343,6 @@
       font-weight:800; font-size:48px; line-height:1;
     }
     .comma-block{ width:20px; align-items:flex-end; padding-bottom:15px; }
-    .decimal-block{ width:15px; font-size:56px; align-items:flex-end; padding-bottom:15px; }
 
     /* Colors */
     .pv-ones, .pv-thousands, .pv-millions { background: var(--c-ones); color: white; }
@@ -379,33 +384,33 @@
     <div class="chart-grid" id="gridContainer"></div>
   </div>
 
-  <!-- Number Line Panel -->
-  <div id="numberLinePanel">
-    <div class="zoom-bar-container">
-      <div class="zoom-bar">
-        <div class="zoom-indicator" id="zoomIndicator"></div>
-      </div>
-      <div class="zoom-labels">
-        <span>0.01</span>
-        <span>0.1</span>
-        <span>1</span>
-        <span>10</span>
-        <span>100</span>
-        <span>1K</span>
-        <span>10K</span>
-        <span>100K</span>
-        <span>1M</span>
-      </div>
-    </div>
-    <div class="number-line-container" id="numberLineContainer">
-      <div class="number-line" id="numberLine"></div>
-    </div>
-    <div class="zoom-hint">Ctrl+scroll or pinch to zoom</div>
-  </div>
-
   <div id="app">
+    <!-- Number Line Panel -->
+    <div id="numberLinePanel">
+      <div class="zoom-bar-container">
+        <div class="zoom-bar">
+          <div class="zoom-indicator" id="zoomIndicator"></div>
+        </div>
+        <div class="zoom-labels">
+          <span>0.01</span>
+          <span>0.1</span>
+          <span>1</span>
+          <span>10</span>
+          <span>100</span>
+          <span>1K</span>
+          <span>10K</span>
+          <span>100K</span>
+          <span>1M</span>
+        </div>
+      </div>
+      <div class="number-line-container" id="numberLineContainer">
+        <div class="number-line" id="numberLine"></div>
+      </div>
+      <div class="zoom-hint">Ctrl+scroll or pinch to zoom</div>
+    </div>
+
     <div id="workPane">
-      <div id="snapLine"></div>
+      <div id="snapLine"><span class="decimal-point">.</span></div>
     </div>
 
     <div id="bottomDock">
@@ -663,14 +668,15 @@
 
     function getVisualClass(type) { return `pv-${type}`; }
 
-    function getDigitsArray(value) {
+    function getDigitsArray(value, forTray = false) {
       let str;
       if (value < 1) {
+        // For decimal values, just return the digit(s) - no leading decimal
         if (value < 0.01) str = value.toFixed(3);
         else if (value < 0.1) str = value.toFixed(2);
         else str = value.toFixed(1);
         const parts = str.split('.');
-        return ['.', ...parts[1].split('')];
+        return parts[1].split(''); // Just the decimal digits, no dot
       } else {
         str = String(Math.floor(value));
       }
@@ -691,7 +697,6 @@
       let width = 0;
       for (let char of digits) {
         if (char === ',') width += 20;
-        else if (char === '.') width += 15;
         else width += BLOCK_SIZE;
       }
       return width;
@@ -710,14 +715,16 @@
       const workPane = document.getElementById('workPane');
       const paneRect = workPane.getBoundingClientRect();
       const snapLine = document.getElementById('snapLine');
-      const lineRect = snapLine.getBoundingClientRect();
+      const decimalPoint = snapLine.querySelector('.decimal-point');
+      const pointRect = decimalPoint.getBoundingClientRect();
       
-      const snapY = lineRect.top - paneRect.top - (BLOCK_HEIGHT / 2);
-      const centerX = (paneRect.width / 2);
+      const snapY = (paneRect.height / 2) - (BLOCK_HEIGHT / 2);
+      const centerX = pointRect.left - paneRect.left + (pointRect.width / 2);
       const cardWidth = getCardWidth(placeValue);
       
       const isDecimal = ['thousandths','hundredths','tenths'].includes(placeValue);
-      return isDecimal ? { x: centerX, y: snapY } : { x: centerX - cardWidth, y: snapY };
+      // Whole numbers snap to LEFT of decimal, decimals snap to RIGHT
+      return isDecimal ? { x: centerX + 5, y: snapY } : { x: centerX - cardWidth - 5, y: snapY };
     }
 
     function findOverlayTarget(dropX, dropY, droppedPlaceValue, excludeId) {
@@ -778,9 +785,13 @@
       
       digits.forEach(char => {
         const d = document.createElement('div');
-        if (char === ',') { d.className = 'digit-block comma-block'; d.textContent = ','; }
-        else if (char === '.') { d.className = 'digit-block decimal-block'; d.textContent = '.'; }
-        else { d.className = 'digit-block'; d.textContent = char; }
+        if (char === ',') { 
+          d.className = 'digit-block comma-block'; 
+          d.textContent = ','; 
+        } else { 
+          d.className = 'digit-block'; 
+          d.textContent = char; 
+        }
         el.appendChild(d);
       });
 
@@ -816,9 +827,13 @@
         
         digits.forEach(char => {
           const d = document.createElement('div');
-          if (char === ',') { d.className = 'digit-block comma-block'; d.textContent = ','; }
-          else if (char === '.') { d.className = 'digit-block decimal-block'; d.textContent = '.'; }
-          else { d.className = 'digit-block'; d.textContent = char; }
+          if (char === ',') { 
+            d.className = 'digit-block comma-block'; 
+            d.textContent = ','; 
+          } else { 
+            d.className = 'digit-block'; 
+            d.textContent = char; 
+          }
           el.appendChild(d);
         });
 
@@ -900,9 +915,13 @@
       const digits = getDigitsArray(draggedTile.value);
       digits.forEach(char => {
         const d = document.createElement('div');
-        if (char === ',') { d.className = 'digit-block comma-block'; d.textContent = ','; }
-        else if (char === '.') { d.className = 'digit-block decimal-block'; d.textContent = '.'; }
-        else { d.className = 'digit-block'; d.textContent = char; }
+        if (char === ',') { 
+          d.className = 'digit-block comma-block'; 
+          d.textContent = ','; 
+        } else { 
+          d.className = 'digit-block'; 
+          d.textContent = char; 
+        }
         g.appendChild(d);
       });
 
