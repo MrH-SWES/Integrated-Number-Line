@@ -13,15 +13,15 @@
       --tray:#1f2937; 
       --accent:#3b82f6;
       --block-size: 60px;
-      --block-height: 110px;
+      --block-height: 100px;
       
-      /* Montessori Colors */
-      --c-ones: #16a34a; 
-      --c-tens: #2563eb;
-      --c-hundreds: #dc2626;
-      --c-tenths: #93c5fd; 
-      --c-hundredths: #fca5a5; 
-      --c-thousandths: #86efac;
+      /* Soft two-color system */
+      --whole-bg: #e8eef4;
+      --whole-text: #334155;
+      --whole-border: #cbd5e1;
+      --decimal-bg: #fef3ee;
+      --decimal-text: #9a3412;
+      --decimal-border: #fed7aa;
     }
 
     body{font-family:'Lexend',sans-serif;background:var(--bg);color:var(--ink);height:100vh;overflow:hidden;touch-action:manipulation; user-select: none;}
@@ -175,7 +175,7 @@
       top: 55px;
       transform: translateX(-50%);
       font-weight: 700;
-      font-size: 0.8rem;
+      font-size: 1.1rem;
       color: #374151;
       white-space: nowrap;
     }
@@ -239,8 +239,8 @@
       position:absolute;
       top:50%;
       left:0; right:0;
-      height:4px;
-      background:rgba(0,0,0,0.1);
+      height:3px;
+      background:rgba(0,0,0,0.06);
       pointer-events:none;
       z-index:5;
     }
@@ -249,12 +249,11 @@
       left: 50%;
       top: 50%;
       transform: translate(-50%, -50%);
-      font-size: 80px;
-      font-weight: 900;
-      color: #111827;
-      text-shadow: 0 2px 0 rgba(255,255,255,1);
+      font-size: 72px;
+      font-weight: 700;
+      color: #64748b;
       line-height: 1;
-      margin-top: -10px;
+      margin-top: -8px;
     }
 
     /* === MULTIPLICATION CHART MODAL === */
@@ -327,30 +326,33 @@
       height:var(--block-height);
       display:flex;
       cursor:grab;
-      border-radius:8px;
-      box-shadow: 4px 4px 0 rgba(0,0,0,0.2);
-      background: white;
+      border-radius:12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      background: var(--whole-bg);
+      border: 2px solid var(--whole-border);
       overflow:hidden;
-      transition: transform 0.1s;
+      transition: transform 0.1s, box-shadow 0.1s;
     }
-    .tile:active{ cursor:grabbing; transform: scale(1.02); }
-    .tile.dragging{ position:fixed; z-index: 9999; opacity:0.9; pointer-events:none; }
+    .tile:active{ cursor:grabbing; transform: scale(1.02); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+    .tile.dragging{ position:fixed; z-index: 9999; opacity:0.95; pointer-events:none; }
     .work-pane-tile{ position:absolute; transition: left 0.2s, top 0.2s; }
 
     .digit-block{
       width:var(--block-size); height:var(--block-height);
       display:flex; align-items:center; justify-content:center;
-      font-weight:800; font-size:48px; line-height:1;
+      font-weight:700; font-size:42px; line-height:1;
+      color: var(--whole-text);
     }
     .comma-block{ width:20px; align-items:flex-end; padding-bottom:15px; }
 
-    /* Colors */
-    .pv-ones, .pv-thousands, .pv-millions { background: var(--c-ones); color: white; }
-    .pv-tens, .pv-tenThousands { background: var(--c-tens); color: white; }
-    .pv-hundreds, .pv-hundredThousands { background: var(--c-hundreds); color: white; }
-    .pv-tenths { background: var(--c-tenths); color: #1e3a8a; }
-    .pv-hundredths { background: var(--c-hundredths); color: #7f1d1d; }
-    .pv-thousandths { background: var(--c-thousandths); color: #14532d; }
+    /* Decimal tiles */
+    .tile.decimal-tile {
+      background: var(--decimal-bg);
+      border-color: var(--decimal-border);
+    }
+    .tile.decimal-tile .digit-block {
+      color: var(--decimal-text);
+    }
 
     /* Confetti */
     .confetti { position: absolute; width: 10px; height: 10px; background: #f00; animation: fall linear forwards; pointer-events: none; z-index: 9999; }
@@ -666,7 +668,9 @@
       return 'millions';
     }
 
-    function getVisualClass(type) { return `pv-${type}`; }
+    function isDecimalValue(value) {
+      return value < 1;
+    }
 
     function getDigitsArray(value, forTray = false) {
       let str;
@@ -778,9 +782,9 @@
       const el = document.createElement('div');
       const placeValue = getPlaceValueType(value);
       const digits = getDigitsArray(value);
-      const colorClass = getVisualClass(placeValue);
+      const isDecimal = isDecimalValue(value);
 
-      el.className = `tile ${colorClass}`;
+      el.className = `tile${isDecimal ? ' decimal-tile' : ''}`;
       el.dataset.value = value;
       
       digits.forEach(char => {
@@ -817,10 +821,10 @@
       sortedTiles.forEach(tile => {
         sum += tile.value;
         const digits = getDigitsArray(tile.value);
-        const colorClass = getVisualClass(tile.placeValue);
+        const isDecimal = isDecimalValue(tile.value);
 
         const el = document.createElement('div');
-        el.className = `tile work-pane-tile ${colorClass}`;
+        el.className = `tile work-pane-tile${isDecimal ? ' decimal-tile' : ''}`;
         el.style.left = tile.x + 'px';
         el.style.top = tile.y + 'px';
         el.style.zIndex = tile.zIndex;
@@ -907,9 +911,9 @@
       document.querySelectorAll('[data-dragging="true"]').forEach(el => el.remove());
       if (!draggedTile) return;
 
-      const colorClass = getVisualClass(draggedTile.placeValue);
+      const isDecimal = isDecimalValue(draggedTile.value);
       const g = document.createElement('div');
-      g.className = `tile ${colorClass} dragging`;
+      g.className = `tile${isDecimal ? ' decimal-tile' : ''} dragging`;
       g.dataset.dragging = 'true';
 
       const digits = getDigitsArray(draggedTile.value);
