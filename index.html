@@ -93,7 +93,7 @@
     }
     
     .zoom-bar-container {
-      margin-bottom: 10px;
+      margin-bottom: 15px; /* Increased spacing */
     }
     
     .zoom-bar {
@@ -122,10 +122,13 @@
       color: #9ca3af;
     }
     
+    /* Increased height to accommodate labels */
     .number-line-container {
       position: relative;
-      height: 70px;
+      height: 90px; 
       cursor: ns-resize;
+      overflow: hidden; /* Hide horizontal sliding ticks */
+      margin-top: 10px;
     }
     
     .number-line {
@@ -133,7 +136,7 @@
       height: 50px;
       position: relative;
       background: linear-gradient(to bottom, transparent 46%, #2c3e50 46%, #2c3e50 54%, transparent 54%);
-      overflow: hidden; /* Ensure ticks sliding in/out don't break layout */
+      /* Removed overflow:hidden from here so labels can hang out the bottom */
     }
     
     .tick {
@@ -154,7 +157,7 @@
     
     .tick-label {
       position: absolute;
-      top: 55px;
+      top: 55px; /* Pushed down below the line */
       transform: translateX(-50%);
       font-weight: 600;
       font-size: 0.75rem;
@@ -173,7 +176,6 @@
       transform: translate(-50%, -50%);
       z-index: 10;
       box-shadow: 0 3px 8px rgba(0,0,0,0.3);
-      /* Removed transition: left 0.3s ease; -> We are now animating this manually in JS loop */
     }
     
     .dot-label {
@@ -476,7 +478,7 @@
     let currentZoomIndex = 3; // Start at Ones
     let isExpanded = false; // Track if cards are expanded
 
-    // === NEW: Lazy Camera State ===
+    // === Lazy Camera State ===
     let currentViewCenter = 0; // Where the center of screen IS
     let targetViewCenter = 0;  // Where the center of screen WANTS to be
     let isAnimatingView = false;
@@ -513,7 +515,7 @@
       return value.toFixed(decimals - 1);
     }
 
-    // === NEW: Animation Loop for Smooth Sliding ===
+    // === Animation Loop for Smooth Sliding ===
     function startViewAnimation() {
       if (isAnimatingView) return;
       isAnimatingView = true;
@@ -522,10 +524,8 @@
 
     function animateViewStep() {
       // Linear Interpolation (Lerp) for smooth slide
-      // 0.05 is the speed factor (lower = slower/smoother)
       const diff = targetViewCenter - currentViewCenter;
       
-      // If we are very close, snap to target and stop
       if (Math.abs(diff) < 0.0001) {
         currentViewCenter = targetViewCenter;
         renderNumberLine();
@@ -541,7 +541,7 @@
       }
     }
 
-    // === NEW: Render function uses currentViewCenter instead of currentTotal ===
+    // === Render uses currentViewCenter ===
     function renderNumberLine() {
       const numberLine = document.getElementById('numberLine');
       const zoomIndicator = document.getElementById('zoomIndicator');
@@ -550,13 +550,13 @@
       const zoom = ZOOM_LEVELS[currentZoomIndex];
       const step = zoom.step;
       const decimals = zoom.decimals;
-      const visibleRange = step * 10; // We show roughly 10 steps
+      const visibleRange = step * 10; 
       
       // Update zoom indicator
       const indicatorPosition = (currentZoomIndex / (ZOOM_LEVELS.length - 1)) * 100;
       zoomIndicator.style.left = `calc(${indicatorPosition}% - 2px)`;
       
-      // Calculate screen boundaries based on VIEW CENTER, not total
+      // Calculate screen boundaries based on VIEW CENTER
       let min = currentViewCenter - (visibleRange / 2);
       let max = currentViewCenter + (visibleRange / 2);
       
@@ -567,21 +567,9 @@
       }
       
       // Calculate Dot Position based on ACTUAL TOTAL
-      // This allows the dot to move independently of the grid
       const dotPosition = ((currentTotal - min) / (max - min)) * 100;
       
-      // Draw Ticks
-      // We want ticks to be "rounded" to the step.
-      // e.g. if min is 4.2 and step is 1, we want ticks at 5, 6, 7...
-      const startTick = Math.ceil(min / step) * step;
-      const endTick = Math.floor(max / step) * step;
-      
-      // We'll draw a few extra on sides to handle sliding cleanly
-      // But for simplicity in this DOM approach, we stick to the grid range
-      // Let's draw ticks based on percentage of the visible window
-      
       // Iterate through sensible snap points within the window
-      // To keep it looking like a "sliding tape", we iterate roughly -1 to 11 relative to start
       const firstMajor = Math.floor(min / step) * step;
       
       for (let v = firstMajor; v <= max + step; v += step) {
@@ -595,9 +583,6 @@
         const tick = document.createElement('div');
         tick.className = 'tick';
         
-        // Major ticks at 0, 5, 10, 15... relative to the step magnitude
-        // e.g. at step 1: 0, 5, 10 are major.
-        // at step 0.1: 0.5, 1.0 are major.
         const ratio = Math.round(val / step);
         if (ratio % 5 === 0) tick.classList.add('major');
         
@@ -615,8 +600,6 @@
       const valueDot = document.createElement('div');
       valueDot.className = 'value-dot';
       
-      // If off screen (left), hide or pin? Let's just let it slide off.
-      // But we clamp visual rendering 0-100 to prevent scrollbar issues if logic fails
       if (dotPosition >= -5 && dotPosition <= 105) {
         valueDot.style.left = dotPosition + '%';
         
@@ -631,40 +614,27 @@
       }
     }
 
-    // Update the Number Line logic to trigger animations
-    // instead of instant updates
     function updateNumberLineTarget() {
       const zoom = ZOOM_LEVELS[currentZoomIndex];
       const step = zoom.step;
       const visibleRange = step * 10;
       
-      // Logic:
-      // If currentTotal is within the "Safety Zone" (middle 60% of screen), don't move view.
-      // If currentTotal pushes the edge, slide view to Center it.
-      
       const distFromCenter = Math.abs(currentTotal - targetViewCenter);
       const threshold = visibleRange * 0.35; // 35% from center = 70% safe zone
       
       if (distFromCenter > threshold) {
-        // We are near edge. Slide to new center.
-        // We set the target to the currentTotal so it centers nicely.
-        // However, we clamp min to range/2 so we don't show negative numbers.
         let newTarget = currentTotal;
         if (newTarget < visibleRange / 2) newTarget = visibleRange / 2;
         
         targetViewCenter = newTarget;
         startViewAnimation();
       } else {
-        // We are safe. Just render to move the dot.
-        // We still trigger animation in case we were already moving, 
-        // or just call render if we are static.
         if (!isAnimatingView) {
            renderNumberLine();
         }
       }
     }
 
-    // Force an immediate snap (for zooms)
     function snapNumberLine() {
        const zoom = ZOOM_LEVELS[currentZoomIndex];
        const visibleRange = zoom.step * 10;
@@ -686,10 +656,10 @@
         e.preventDefault();
         if (e.deltaY < 0 && currentZoomIndex < ZOOM_LEVELS.length - 1) {
           currentZoomIndex++;
-          snapNumberLine(); // Snap on zoom
+          snapNumberLine(); 
         } else if (e.deltaY > 0 && currentZoomIndex > 0) {
           currentZoomIndex--;
-          snapNumberLine(); // Snap on zoom
+          snapNumberLine(); 
         }
       }
     });
