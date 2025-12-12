@@ -124,7 +124,7 @@
     .number-line-container {
       position: relative;
       height: 65px; 
-      cursor: ns-resize;
+      cursor: ew-resize; /* Changed cursor to indicate horizontal zoom/scroll */
       overflow: visible; 
       margin: 5px 50px 0 50px;
     }
@@ -315,8 +315,6 @@
       cursor: grabbing;
       transform-origin: center center;
     }
-    
-
     
     .plus-sign {
       position: absolute;
@@ -531,14 +529,17 @@
     }
 
     const numberLineContainer = document.getElementById('numberLineContainer');
+    
+    // IMPORTANT FIX: Added { passive: false } to allow e.preventDefault() to work reliably on Chrome/Edge
     numberLineContainer.addEventListener('wheel', (e) => {
       if (e.ctrlKey) {
         e.preventDefault();
+        e.stopPropagation();
         if (e.deltaY < 0 && currentZoomIndex < ZOOM_LEVELS.length - 1) currentZoomIndex++;
         else if (e.deltaY > 0 && currentZoomIndex > 0) currentZoomIndex--;
         snapNumberLine();
       }
-    });
+    }, { passive: false });
     
     numberLineContainer.addEventListener('touchstart', (e) => {
       if (e.touches.length === 2) lastTouchDistance = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
@@ -601,7 +602,10 @@
       
       const snapY = (paneRect.height / 2) - (BLOCK_HEIGHT / 2);
       const centerX = pointRect.left - paneRect.left + (pointRect.width / 2);
-      const DECIMAL_SPACING = 8;
+      
+      // IMPORTANT FIX: Increase spacing when Expanded to accommodate the central Plus sign
+      const DECIMAL_SPACING = isExpanded ? 30 : 8;
+      
       const EXPAND_GAP = 50; // Space for plus sign
       const scale = getScaleFactor();
       const scaledBlockSize = BLOCK_SIZE * scale;
