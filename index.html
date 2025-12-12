@@ -757,6 +757,10 @@
       if (isExpanded && snappedTiles.length > 1) {
         const paneHeight = workPane.getBoundingClientRect().height;
         const plusY = (paneHeight / 2) - (BLOCK_HEIGHT / 2);
+        const decimalPoint = document.querySelector('#snapLine .decimal-point');
+        const pointRect = decimalPoint.getBoundingClientRect();
+        const paneRect = workPane.getBoundingClientRect();
+        const decimalCenterX = pointRect.left - paneRect.left + (pointRect.width / 2);
         
         // Separate tiles into wholes and decimals
         const wholeTiles = snappedTiles.filter(t => !isDecimalValue(t.value)).sort((a, b) => b.x - a.x); // right to left
@@ -764,7 +768,6 @@
         
         // Plus signs between whole number cards (right to left, so between each pair)
         for (let i = 0; i < wholeTiles.length - 1; i++) {
-          const rightTile = wholeTiles[i];
           const leftTile = wholeTiles[i + 1];
           const plusX = leftTile.x + getExpandedCardWidth(leftTile.value) + 10;
           
@@ -776,16 +779,12 @@
           workPane.appendChild(plus);
         }
         
-        // Plus sign between wholes and decimals (if both exist)
+        // Plus sign over the decimal point (if both wholes and decimals exist)
         if (wholeTiles.length > 0 && decimalTiles.length > 0) {
-          // Get the rightmost whole tile (ones position)
-          const rightmostWhole = wholeTiles[0];
-          const plusX = rightmostWhole.x + getExpandedCardWidth(rightmostWhole.value) + 10;
-          
           const plus = document.createElement('div');
           plus.className = 'plus-sign';
           plus.textContent = '+';
-          plus.style.left = plusX + 'px';
+          plus.style.left = (decimalCenterX - 15) + 'px'; // Center the plus sign
           plus.style.top = plusY + 'px';
           workPane.appendChild(plus);
         }
