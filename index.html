@@ -83,25 +83,6 @@
     .btn-danger { background: #ef4444; }
     .btn-danger:hover { background: #dc2626; }
     .btn-success { background: #10b981; }
-    
-    /* Challenge Banner */
-    #challengeBanner {
-      position: absolute;
-      top: 70px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #1f2937;
-      color: #facc15;
-      padding: 10px 24px;
-      border-radius: 50px;
-      font-weight: 900;
-      font-size: 20px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-      z-index: 40;
-      display: none;
-      animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-    @keyframes popIn { from{transform:translate(-50%, -20px) scale(0.9); opacity:0;} to{transform:translate(-50%, 0) scale(1); opacity:1;} }
 
     /* === NUMBER LINE PANEL === */
     #numberLinePanel {
@@ -355,10 +336,6 @@
       color: var(--decimal-text);
     }
 
-    /* Confetti */
-    .confetti { position: absolute; width: 10px; height: 10px; background: #f00; animation: fall linear forwards; pointer-events: none; z-index: 9999; }
-    @keyframes fall { to { transform: translateY(100vh) rotate(720deg); } }
-
   </style>
 </head>
 <body>
@@ -376,12 +353,8 @@
     <div class="dash-group">
       <button class="btn" id="expandBtn"><span class="btn-icon">💥</span> Expand</button>
       <button class="btn" id="toggleChartBtn"><span class="btn-icon">✖️</span> Chart</button>
-      <button class="btn btn-success" id="challengeBtn"><span class="btn-icon">🎯</span> Challenge</button>
     </div>
   </div>
-
-  <!-- Challenge Banner -->
-  <div id="challengeBanner">Target: <span id="targetNum">0</span></div>
 
   <!-- Multiplication Chart Popup -->
   <div id="multChart">
@@ -475,8 +448,6 @@
     let tiles = []; 
     let activeDrawer = 'ones'; 
     let currentTotal = 0;
-    let challengeMode = false;
-    let targetNumber = 0;
     let currentZoomIndex = 3; // Start at Ones
     let isExpanded = false; // Track if cards are expanded
 
@@ -721,10 +692,13 @@
     }
 
     function getPlaceValueOrder(placeValue) {
+      // Higher number = higher z-index = on top
+      // For decimals: tenths on top, then hundredths, then thousandths
+      // For wholes: ones on top, then tens, etc.
       const order = { 
-        thousandths: 1, hundredths: 2, tenths: 3,
-        millions: 4, hundredThousands: 5, tenThousands: 6, 
-        thousands: 7, hundreds: 8, tens: 9, ones: 10
+        thousandths: 100, hundredths: 101, tenths: 102,
+        ones: 103, tens: 104, hundreds: 105, thousands: 106, 
+        tenThousands: 107, hundredThousands: 108, millions: 109
       };
       return order[placeValue];
     }
@@ -739,29 +713,45 @@
       const snapY = (paneRect.height / 2) - (BLOCK_HEIGHT / 2);
       const centerX = pointRect.left - paneRect.left + (pointRect.width / 2);
       
-      const DECIMAL_SPACING = 10;
+      const DECIMAL_SPACING = 8;
       const EXPAND_GAP = isExpanded ? 10 : 0;
       
       // Calculate scale factor based on number of tiles
       const scale = getScaleFactor();
       const scaledBlockSize = BLOCK_SIZE * scale;
       
-      // Each place value gets exactly one slot
-      // Decimals: tenths at position 0, hundredths at position 1, thousandths at position 2
-      // Wholes: ones at position 0, tens at position 1, etc.
+      // Decimal cards OVERLAP - each one is positioned so only its rightmost digit shows
+      // tenths: shows "3" at position 0
+      // hundredths: the "0" hides under tenths, "4" shows at position 1  
+      // thousandths: "00" hides under previous, "5" shows at position 2
       
       const decimalPlaces = ['tenths', 'hundredths', 'thousandths'];
       const wholePlaces = ['ones', 'tens', 'hundreds', 'thousands', 'tenThousands', 'hundredThousands', 'millions'];
       
       if (decimalPlaces.includes(placeValue)) {
         const position = decimalPlaces.indexOf(placeValue);
-        const offset = position * (scaledBlockSize + EXPAND_GAP);
-        return { x: centerX + DECIMAL_SPACING + offset, y: snapY };
+        // Each decimal card's RIGHT edge aligns with its digit position
+        // So we position by where the rightmost digit should appear
+        const rightEdgeX = centerX + DECIMAL_SPACING + ((position + 1) * (scaledBlockSize + EXPAND_GAP));
+        // Then calculate left edge based on card width
+        const cardWidth = getCardWidthForSnapped(placeValue, scale);
+        return { x: rightEdgeX - cardWidth, y: snapY };
       } else {
         const position = wholePlaces.indexOf(placeValue);
         const offset = position * (scaledBlockSize + EXPAND_GAP);
         return { x: centerX - DECIMAL_SPACING - scaledBlockSize - offset, y: snapY };
       }
+    }
+    
+    function getCardWidthForSnapped(placeValue, scale = 1) {
+      // For snapped decimal cards, width is just the digit portion (no leading 0.)
+      // tenths = 1 digit, hundredths = 2 digits (0 + digit), thousandths = 3 digits
+      const decimalDigits = { tenths: 1, hundredths: 2, thousandths: 3 };
+      if (decimalDigits[placeValue]) {
+        return decimalDigits[placeValue] * BLOCK_SIZE * scale;
+      }
+      // For whole numbers, just one digit
+      return BLOCK_SIZE * scale;
     }
     
     function getScaleFactor() {
@@ -950,8 +940,6 @@
       // Auto-zoom number line to sensible level
       currentZoomIndex = getSensibleZoomIndex(currentTotal);
       updateNumberLine();
-      
-      if(challengeMode) checkWinCondition();
     }
 
     // ====== DRAG HANDLERS ======
@@ -1107,48 +1095,6 @@
       utterance.rate = 0.9;
       window.speechSynthesis.speak(utterance);
     });
-
-    document.getElementById('challengeBtn').addEventListener('click', () => {
-      challengeMode = !challengeMode;
-      const banner = document.getElementById('challengeBanner');
-      const btn = document.getElementById('challengeBtn');
-      
-      if(challengeMode) {
-        banner.style.display = 'block';
-        btn.style.background = '#f59e0b';
-        generateNewTarget();
-      } else {
-        banner.style.display = 'none';
-        btn.style.background = '';
-      }
-    });
-
-    function generateNewTarget() {
-      targetNumber = Math.floor(Math.random() * 9000) + 100;
-      document.getElementById('targetNum').textContent = new Intl.NumberFormat().format(targetNumber);
-    }
-
-    function checkWinCondition() {
-      if(currentTotal === targetNumber) {
-        celebrate();
-        setTimeout(generateNewTarget, 3000);
-      }
-    }
-
-    function celebrate() {
-      const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b'];
-      for(let i=0; i<50; i++) {
-        const c = document.createElement('div');
-        c.className = 'confetti';
-        c.style.left = Math.random() * 100 + 'vw';
-        c.style.background = colors[Math.floor(Math.random() * colors.length)];
-        c.style.animationDuration = (Math.random() * 2 + 2) + 's';
-        document.body.appendChild(c);
-        setTimeout(() => c.remove(), 4000);
-      }
-      const utterance = new SpeechSynthesisUtterance("Great Job!");
-      window.speechSynthesis.speak(utterance);
-    }
 
     document.getElementById('toggleChartBtn').addEventListener('click', () => {
       const chart = document.getElementById('multChart');
