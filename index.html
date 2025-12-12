@@ -126,7 +126,7 @@
       height: 65px; 
       cursor: ns-resize;
       overflow: hidden; 
-      margin-top: 5px;
+      margin: 5px 30px 0 30px;
     }
     
     .number-line {
@@ -233,31 +233,6 @@
       margin-top: 35px;
     }
 
-    #multChart {
-      position: absolute;
-      top: 80px; right: 20px;
-      background: white;
-      padding: 15px;
-      border-radius: 12px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-      z-index: 100;
-      display: none;
-    }
-    .chart-grid {
-      display: grid;
-      grid-template-columns: repeat(11, 1fr);
-      gap: 2px;
-      font-size: 12px;
-    }
-    .chart-cell {
-      width: 30px; height: 30px;
-      display: flex; align-items: center; justify-content: center;
-      background: #f3f4f6;
-      border-radius: 4px;
-      font-weight: 600;
-    }
-    .chart-header { background: #374151; color: white; }
-
     #bottomDock{
       height: 22vh;
       min-height: 140px;
@@ -345,11 +320,16 @@
     
     .plus-sign {
       position: absolute;
-      font-size: 32px;
+      font-size: 28px;
       font-weight: 700;
-      color: #6b7280;
+      color: #9ca3af;
       pointer-events: none;
       z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: var(--block-height);
     }
   </style>
 </head>
@@ -365,12 +345,7 @@
     </div>
     <div class="dash-group">
       <button class="btn" id="expandBtn"><span class="btn-icon">💥</span> Expand</button>
-      <button class="btn" id="toggleChartBtn"><span class="btn-icon">✖️</span> Chart</button>
     </div>
-  </div>
-
-  <div id="multChart">
-    <div class="chart-grid" id="gridContainer"></div>
   </div>
 
   <div id="app">
@@ -627,7 +602,7 @@
       const snapY = (paneRect.height / 2) - (BLOCK_HEIGHT / 2);
       const centerX = pointRect.left - paneRect.left + (pointRect.width / 2);
       const DECIMAL_SPACING = 8;
-      const EXPAND_GAP = isExpanded ? 40 : 0;
+      const EXPAND_GAP = 50; // Space for plus sign
       const scale = getScaleFactor();
       const scaledBlockSize = BLOCK_SIZE * scale;
       
@@ -692,7 +667,7 @@
       if (isExpanded) {
         snappedTiles.forEach((t, i) => {
           totalWidth += getExpandedCardWidthForPlaceValue(t.placeValue);
-          if (i < snappedTiles.length - 1) totalWidth += 40;
+          if (i < snappedTiles.length - 1) totalWidth += 50; // Match EXPAND_GAP
         });
       } else {
         const decimalPlaces = ['tenths', 'hundredths', 'thousandths'];
@@ -781,11 +756,20 @@
       // Plus signs for expanded view
       if (isExpanded && snappedTiles.length > 1) {
         const sorted = [...snappedTiles].sort((a, b) => a.x - b.x);
+        const paneHeight = workPane.getBoundingClientRect().height;
         for (let i = 0; i < sorted.length - 1; i++) {
+          const currentTile = sorted[i];
+          const nextTile = sorted[i + 1];
+          const currentWidth = getExpandedCardWidth(currentTile.value);
+          // Position plus sign between cards
+          const plusX = currentTile.x + currentWidth + 10;
+          const plusY = (paneHeight / 2) - (BLOCK_HEIGHT / 2);
+          
           const plus = document.createElement('div');
           plus.className = 'plus-sign';
           plus.textContent = '+';
-          plus.style.cssText = `left:${sorted[i].x + getExpandedCardWidth(sorted[i].value) + 5}px;top:${workPane.getBoundingClientRect().height / 2 - 15}px`;
+          plus.style.left = plusX + 'px';
+          plus.style.top = plusY + 'px';
           workPane.appendChild(plus);
         }
       }
@@ -929,32 +913,11 @@
       renderWorkPane();
     }
 
-    // ====== INIT ======
-    function buildMultChart() {
-      const grid = document.getElementById('gridContainer');
-      const createCell = (text, cls) => {
-        const d = document.createElement('div');
-        d.className = `chart-cell ${cls}`;
-        d.textContent = text;
-        return d;
-      };
-      grid.appendChild(createCell('×', 'chart-header'));
-      for(let i=1; i<=10; i++) grid.appendChild(createCell(i, 'chart-header'));
-      for(let r=1; r<=10; r++) {
-        grid.appendChild(createCell(r, 'chart-header'));
-        for(let c=1; c<=10; c++) grid.appendChild(createCell(r*c, 'chart-cell'));
-      }
-    }
-
+    // ====== EVENT LISTENERS ======
     document.getElementById('speakBtn').addEventListener('click', () => {
       const utterance = new SpeechSynthesisUtterance(currentTotal.toString());
       utterance.rate = 0.9;
       window.speechSynthesis.speak(utterance);
-    });
-
-    document.getElementById('toggleChartBtn').addEventListener('click', () => {
-      const chart = document.getElementById('multChart');
-      chart.style.display = chart.style.display === 'block' ? 'none' : 'block';
     });
 
     document.getElementById('expandBtn').addEventListener('click', () => {
@@ -985,7 +948,6 @@
     });
 
     // Start
-    buildMultChart();
     renderActiveDrawer();
     renderWorkPane();
     snapNumberLine();
