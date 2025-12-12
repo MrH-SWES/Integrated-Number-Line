@@ -124,7 +124,7 @@
     .number-line-container {
       position: relative;
       height: 65px; 
-      cursor: ew-resize; /* Changed cursor to indicate horizontal zoom/scroll */
+      cursor: ns-resize;
       overflow: visible; 
       margin: 5px 50px 0 50px;
     }
@@ -316,6 +316,8 @@
       transform-origin: center center;
     }
     
+
+    
     .plus-sign {
       position: absolute;
       font-size: 28px;
@@ -328,6 +330,43 @@
       justify-content: center;
       width: 30px;
       height: var(--block-height);
+    }
+    
+    /* Slide animation for x10 / ÷10 */
+    .tile.sliding {
+      transition: left 0.5s ease-in-out, background 0.5s ease-in-out, border-color 0.5s ease-in-out;
+    }
+    .tile.sliding .digit-block {
+      transition: color 0.5s ease-in-out;
+    }
+    
+    /* Message popup */
+    #messagePopup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #1f2937;
+      color: white;
+      padding: 20px 30px;
+      border-radius: 16px;
+      font-size: 18px;
+      font-weight: 700;
+      text-align: center;
+      z-index: 10000;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+      max-width: 400px;
+    }
+    #messagePopup.show {
+      opacity: 1;
+    }
+    #messagePopup .emoji {
+      font-size: 36px;
+      display: block;
+      margin-bottom: 10px;
     }
   </style>
 </head>
@@ -342,9 +381,13 @@
       </div>
     </div>
     <div class="dash-group">
+      <button class="btn" id="divideBtn"><span class="btn-icon">➗</span> ÷10</button>
+      <button class="btn" id="multiplyBtn"><span class="btn-icon">✖️</span> ×10</button>
       <button class="btn" id="expandBtn"><span class="btn-icon">💥</span> Expand</button>
     </div>
   </div>
+
+  <div id="messagePopup"><span class="emoji"></span><span class="text"></span></div>
 
   <div id="app">
     <div id="numberLinePanel">
@@ -529,17 +572,14 @@
     }
 
     const numberLineContainer = document.getElementById('numberLineContainer');
-    
-    // IMPORTANT FIX: Added { passive: false } to allow e.preventDefault() to work reliably on Chrome/Edge
     numberLineContainer.addEventListener('wheel', (e) => {
       if (e.ctrlKey) {
         e.preventDefault();
-        e.stopPropagation();
         if (e.deltaY < 0 && currentZoomIndex < ZOOM_LEVELS.length - 1) currentZoomIndex++;
         else if (e.deltaY > 0 && currentZoomIndex > 0) currentZoomIndex--;
         snapNumberLine();
       }
-    }, { passive: false });
+    });
     
     numberLineContainer.addEventListener('touchstart', (e) => {
       if (e.touches.length === 2) lastTouchDistance = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
@@ -602,10 +642,7 @@
       
       const snapY = (paneRect.height / 2) - (BLOCK_HEIGHT / 2);
       const centerX = pointRect.left - paneRect.left + (pointRect.width / 2);
-      
-      // IMPORTANT FIX: Increase spacing when Expanded to accommodate the central Plus sign
-      const DECIMAL_SPACING = isExpanded ? 30 : 8;
-      
+      const DECIMAL_SPACING = 8;
       const EXPAND_GAP = 50; // Space for plus sign
       const scale = getScaleFactor();
       const scaledBlockSize = BLOCK_SIZE * scale;
@@ -716,7 +753,7 @@
       });
     }
 
-    function renderWorkPane() {
+    function renderWorkPane(animate = false) {
       const workPane = document.getElementById('workPane');
       workPane.querySelectorAll('.work-pane-tile, .plus-sign').forEach(el => el.remove());
       
@@ -742,6 +779,7 @@
 
         const el = document.createElement('div');
         el.className = `tile work-pane-tile${isDecimal ? ' decimal-tile' : ''}`;
+        if (animate) el.classList.add('sliding');
         el.style.cssText = `left:${tile.x}px;top:${tile.y}px;z-index:${tile.zIndex}`;
         if (tile.snappedToLine && scale < 1) {
           el.style.transform = `scale(${scale})`;
@@ -961,6 +999,221 @@
         : '<span class="btn-icon">💥</span> Expand';
       renderWorkPane();
     });
+    
+    // ====== MULTIPLY / DIVIDE BY 10 ======
+    function showMessage(emoji, text) {
+      const popup = document.getElementById('messagePopup');
+      popup.querySelector('.emoji').textContent = emoji;
+      popup.querySelector('.text').textContent = text;
+      popup.classList.add('show');
+      setTimeout(() => popup.classList.remove('show'), 2500);
+    }
+    
+    function getNextPlaceValue(placeValue, direction) {
+      const allPlaces = ['thousandths', 'hundredths', 'tenths', 'ones', 'tens', 'hundreds', 'thousands', 'tenThousands', 'hundredThousands', 'millions'];
+      const idx = allPlaces.indexOf(placeValue);
+      const newIdx = idx + direction; // +1 for x10, -1 for ÷10
+      if (newIdx < 0 || newIdx >= allPlaces.length) return null;
+      return allPlaces[newIdx];
+    }
+    
+    function getValueForPlaceValue(digit, placeValue) {
+      const multipliers = {
+        'thousandths': 0.001,
+        'hundredths': 0.01,
+        'tenths': 0.1,
+        'ones': 1,
+        'tens': 10,
+        'hundreds': 100,
+        'thousands': 1000,
+        'tenThousands': 10000,
+        'hundredThousands': 100000,
+        'millions': 1000000
+      };
+      return digit * multipliers[placeValue];
+    }
+    
+    function getDigitFromValue(value) {
+      // Extract the significant digit (1-9) from a place value card
+      if (value < 1) {
+        const str = value.toFixed(3);
+        for (let c of str) {
+          if (c !== '0' && c !== '.') return parseInt(c);
+        }
+      }
+      return parseInt(String(Math.floor(value))[0]);
+    }
+    
+    function multiplyByTen() {
+      const snappedTiles = tiles.filter(t => t.snappedToLine);
+      if (snappedTiles.length === 0) return;
+      
+      // Check if any tile would go beyond millions
+      for (let tile of snappedTiles) {
+        const newPlace = getNextPlaceValue(tile.placeValue, 1);
+        if (!newPlace) {
+          const newValue = currentTotal * 10;
+          if (newValue >= 10000000) {
+            showMessage('🚀', `Whoa! That would be ${newValue.toLocaleString()} — too big for our number line!`);
+          } else {
+            showMessage('📈', `That would push past millions!`);
+          }
+          return;
+        }
+      }
+      
+      // Check for collisions (two tiles ending up in same place value)
+      const newPlaceValues = snappedTiles.map(t => getNextPlaceValue(t.placeValue, 1));
+      const uniquePlaces = new Set(newPlaceValues);
+      if (uniquePlaces.size !== newPlaceValues.length) {
+        showMessage('🤔', `Some digits would stack up! Try a different number.`);
+        return;
+      }
+      
+      // Collapse if expanded
+      if (isExpanded) {
+        isExpanded = false;
+        document.getElementById('expandBtn').innerHTML = '<span class="btn-icon">💥</span> Expand';
+      }
+      
+      // Animate the transformation
+      animateTransform(1);
+    }
+    
+    function divideByTen() {
+      const snappedTiles = tiles.filter(t => t.snappedToLine);
+      if (snappedTiles.length === 0) return;
+      
+      // Check if any tile would go beyond thousandths
+      for (let tile of snappedTiles) {
+        const newPlace = getNextPlaceValue(tile.placeValue, -1);
+        if (!newPlace) {
+          const digit = getDigitFromValue(tile.value);
+          showMessage('🔬', `The ${tile.placeValue} digit (${digit}) would become ten-thousandths — smaller than we can show!`);
+          return;
+        }
+      }
+      
+      // Check for collisions
+      const newPlaceValues = snappedTiles.map(t => getNextPlaceValue(t.placeValue, -1));
+      const uniquePlaces = new Set(newPlaceValues);
+      if (uniquePlaces.size !== newPlaceValues.length) {
+        showMessage('🤔', `Some digits would stack up! Try a different number.`);
+        return;
+      }
+      
+      // Collapse if expanded
+      if (isExpanded) {
+        isExpanded = false;
+        document.getElementById('expandBtn').innerHTML = '<span class="btn-icon">💥</span> Expand';
+      }
+      
+      // Animate the transformation
+      animateTransform(-1);
+    }
+    
+    function animateTransform(direction) {
+      const snappedTiles = tiles.filter(t => t.snappedToLine);
+      const workPane = document.getElementById('workPane');
+      const tileElements = [...workPane.querySelectorAll('.work-pane-tile')];
+      
+      // Store old positions and prepare animation data
+      const animationData = snappedTiles.map((tile, idx) => {
+        const digit = getDigitFromValue(tile.value);
+        const newPlaceValue = getNextPlaceValue(tile.placeValue, direction);
+        const newValue = getValueForPlaceValue(digit, newPlaceValue);
+        const wasDecimal = isDecimalValue(tile.value);
+        const willBeDecimal = isDecimalValue(newValue);
+        
+        // Find the DOM element for this tile (match by current position)
+        const el = tileElements.find(e => {
+          const elLeft = parseFloat(e.style.left);
+          return Math.abs(elLeft - tile.x) < 5;
+        });
+        
+        return {
+          tile,
+          el,
+          digit,
+          newPlaceValue,
+          newValue,
+          wasDecimal,
+          willBeDecimal,
+          colorChange: wasDecimal !== willBeDecimal
+        };
+      });
+      
+      // First, update the tile data
+      animationData.forEach(data => {
+        data.tile.placeValue = data.newPlaceValue;
+        data.tile.value = data.newValue;
+        data.tile.zIndex = 1000 + getPlaceValueOrder(data.newPlaceValue);
+      });
+      
+      // Calculate new positions
+      snappedTiles.forEach(tile => {
+        const newPos = getSnapLinePosition(tile.placeValue);
+        tile.x = newPos.x;
+        tile.y = newPos.y;
+      });
+      
+      // Apply CSS transitions and animate to new positions
+      animationData.forEach(data => {
+        if (!data.el) return;
+        
+        // Add transition class
+        data.el.style.transition = 'left 0.5s ease-in-out, background 0.5s ease-in-out, border-color 0.5s ease-in-out';
+        
+        // Animate position
+        data.el.style.left = data.tile.x + 'px';
+        
+        // Animate color change if crossing decimal point
+        if (data.colorChange) {
+          if (data.willBeDecimal) {
+            data.el.style.background = 'var(--decimal-bg)';
+            data.el.style.borderColor = 'var(--decimal-border)';
+            data.el.querySelectorAll('.digit-block').forEach(d => {
+              d.style.transition = 'color 0.5s ease-in-out';
+              d.style.color = 'var(--decimal-text)';
+            });
+          } else {
+            data.el.style.background = 'var(--whole-bg)';
+            data.el.style.borderColor = 'var(--whole-border)';
+            data.el.querySelectorAll('.digit-block').forEach(d => {
+              d.style.transition = 'color 0.5s ease-in-out';
+              d.style.color = 'var(--whole-text)';
+            });
+          }
+        }
+      });
+      
+      // Update the total display immediately for feedback
+      const newTotal = snappedTiles.reduce((sum, t) => sum + t.value, 0);
+      currentTotal = parseFloat(newTotal.toFixed(4));
+      document.getElementById('sumText').textContent = new Intl.NumberFormat('en-US').format(currentTotal);
+      
+      // After animation completes, do a full re-render to update digit display
+      setTimeout(() => {
+        renderWorkPane();
+        
+        // Auto-zoom to appropriate level
+        if (currentTotal >= 1000000) currentZoomIndex = 9;
+        else if (currentTotal >= 100000) currentZoomIndex = 8;
+        else if (currentTotal >= 10000) currentZoomIndex = 7;
+        else if (currentTotal >= 1000) currentZoomIndex = 6;
+        else if (currentTotal >= 100) currentZoomIndex = 5;
+        else if (currentTotal >= 10) currentZoomIndex = 4;
+        else if (currentTotal >= 1) currentZoomIndex = 3;
+        else if (currentTotal >= 0.1) currentZoomIndex = 2;
+        else if (currentTotal >= 0.01) currentZoomIndex = 1;
+        else currentZoomIndex = 0;
+        
+        snapNumberLine();
+      }, 550);
+    }
+    
+    document.getElementById('multiplyBtn').addEventListener('click', multiplyByTen);
+    document.getElementById('divideBtn').addEventListener('click', divideByTen);
 
     document.querySelectorAll('.drawer-tab').forEach(tab => {
       tab.addEventListener('click', () => {
