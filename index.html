@@ -12,8 +12,8 @@
       --ink:#111827;
       --tray:#1f2937; 
       --accent:#3b82f6;
-      --block-size: 60px;
-      --block-height: 100px;
+      --block-size: 50px;
+      --block-height: 70px;
       
       /* Soft two-color system */
       --whole-bg: #e8eef4;
@@ -174,9 +174,9 @@
       position: absolute;
       top: 55px;
       transform: translateX(-50%);
-      font-weight: 700;
-      font-size: 1.1rem;
-      color: #374151;
+      font-weight: 600;
+      font-size: 0.75rem;
+      color: #6b7280;
       white-space: nowrap;
     }
     
@@ -340,11 +340,11 @@
     .digit-block{
       width:var(--block-size); height:var(--block-height);
       display:flex; align-items:center; justify-content:center;
-      font-weight:700; font-size:42px; line-height:1;
+      font-weight:700; font-size:36px; line-height:1;
       color: var(--whole-text);
     }
-    .comma-block{ width:20px; align-items:flex-end; padding-bottom:15px; }
-    .decimal-block{ width:20px; font-size:48px; font-weight:700; align-items:flex-end; padding-bottom:12px; }
+    .comma-block{ width:16px; align-items:flex-end; padding-bottom:10px; }
+    .decimal-block{ width:16px; font-size:36px; font-weight:700; align-items:flex-end; padding-bottom:8px; }
 
     /* Decimal tiles */
     .tile.decimal-tile {
@@ -439,8 +439,8 @@
 
   <script>
     // ====== CONFIG ======
-    const BLOCK_SIZE = 60;
-    const BLOCK_HEIGHT = 110;
+    const BLOCK_SIZE = 50;
+    const BLOCK_HEIGHT = 70;
     const SNAP_DISTANCE = 40;
     const SNAP_LINE_DISTANCE = 80; 
     
@@ -553,7 +553,7 @@
       // Dot position
       const dotPosition = ((currentTotal - min) / visibleRange) * 100;
       
-      // Draw 11 ticks
+      // Draw 11 ticks with labels for ALL of them
       for (let i = 0; i <= 10; i++) {
         const tickValue = min + (visibleRange * (i / 10));
         const position = (i / 10) * 100;
@@ -565,28 +565,27 @@
         }
         tick.style.left = position + '%';
         numberLine.appendChild(tick);
-      }
-      
-      // Labels at 0%, 50%, 100%
-      [0, 5, 10].forEach(i => {
-        const tickValue = min + (visibleRange * (i / 10));
-        const position = (i / 10) * 100;
         
+        // Label every tick
         const label = document.createElement('div');
         label.className = 'tick-label';
         label.style.left = position + '%';
         label.textContent = formatNumberLineLabel(tickValue, decimals);
         numberLine.appendChild(label);
-      });
+      }
       
-      // Value dot with label
+      // Value dot with label showing FULL current total
       const valueDot = document.createElement('div');
       valueDot.className = 'value-dot';
       valueDot.style.left = Math.max(0, Math.min(100, dotPosition)) + '%';
       
       const dotLabel = document.createElement('div');
       dotLabel.className = 'dot-label';
-      dotLabel.textContent = formatDotLabel(currentTotal, decimals);
+      // Show the full number, formatted nicely
+      dotLabel.textContent = currentTotal.toLocaleString(undefined, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 3
+      });
       valueDot.appendChild(dotLabel);
       
       numberLine.appendChild(valueDot);
@@ -740,23 +739,26 @@
       const snapY = (paneRect.height / 2) - (BLOCK_HEIGHT / 2);
       const centerX = pointRect.left - paneRect.left + (pointRect.width / 2);
       
-      const DECIMAL_SPACING = 12;
-      const EXPAND_GAP = isExpanded ? 8 : 0;
-      
-      const isDecimal = ['thousandths','hundredths','tenths'].includes(placeValue);
+      const DECIMAL_SPACING = 10;
+      const EXPAND_GAP = isExpanded ? 10 : 0;
       
       // Calculate scale factor based on number of tiles
       const scale = getScaleFactor();
       const scaledBlockSize = BLOCK_SIZE * scale;
       
-      if (isDecimal) {
-        const decimalOrder = { tenths: 0, hundredths: 1, thousandths: 2 };
-        const position = decimalOrder[placeValue];
+      // Each place value gets exactly one slot
+      // Decimals: tenths at position 0, hundredths at position 1, thousandths at position 2
+      // Wholes: ones at position 0, tens at position 1, etc.
+      
+      const decimalPlaces = ['tenths', 'hundredths', 'thousandths'];
+      const wholePlaces = ['ones', 'tens', 'hundreds', 'thousands', 'tenThousands', 'hundredThousands', 'millions'];
+      
+      if (decimalPlaces.includes(placeValue)) {
+        const position = decimalPlaces.indexOf(placeValue);
         const offset = position * (scaledBlockSize + EXPAND_GAP);
         return { x: centerX + DECIMAL_SPACING + offset, y: snapY };
       } else {
-        const wholeOrder = { ones: 0, tens: 1, hundreds: 2, thousands: 3, tenThousands: 4, hundredThousands: 5, millions: 6 };
-        const position = wholeOrder[placeValue];
+        const position = wholePlaces.indexOf(placeValue);
         const offset = position * (scaledBlockSize + EXPAND_GAP);
         return { x: centerX - DECIMAL_SPACING - scaledBlockSize - offset, y: snapY };
       }
@@ -775,19 +777,22 @@
       let wholeSlots = 0;
       let decimalSlots = 0;
       
+      const decimalPlaces = ['tenths', 'hundredths', 'thousandths'];
+      const wholePlaces = ['ones', 'tens', 'hundreds', 'thousands', 'tenThousands', 'hundredThousands', 'millions'];
+      
       snappedTiles.forEach(t => {
-        if (isDecimalValue(t.value)) {
-          const order = { tenths: 1, hundredths: 2, thousandths: 3 };
-          decimalSlots = Math.max(decimalSlots, order[t.placeValue] || 1);
+        if (decimalPlaces.includes(t.placeValue)) {
+          const pos = decimalPlaces.indexOf(t.placeValue) + 1;
+          decimalSlots = Math.max(decimalSlots, pos);
         } else {
-          const order = { ones: 1, tens: 2, hundreds: 3, thousands: 4, tenThousands: 5, hundredThousands: 6, millions: 7 };
-          wholeSlots = Math.max(wholeSlots, order[t.placeValue] || 1);
+          const pos = wholePlaces.indexOf(t.placeValue) + 1;
+          wholeSlots = Math.max(wholeSlots, pos);
         }
       });
       
       const totalSlots = wholeSlots + decimalSlots;
-      const expandGap = isExpanded ? 8 : 0;
-      const neededWidth = (totalSlots * (BLOCK_SIZE + expandGap)) + 60; // 60 for decimal point area
+      const expandGap = isExpanded ? 10 : 0;
+      const neededWidth = (totalSlots * (BLOCK_SIZE + expandGap)) + 50;
       
       if (neededWidth > paneWidth * 0.9) {
         return (paneWidth * 0.9) / neededWidth;
@@ -1035,11 +1040,12 @@
       const paneRect = workPane.getBoundingClientRect();
 
       if (e.clientY < paneRect.bottom && e.clientY > paneRect.top) {
-        let dropY = e.clientY - paneRect.top - dragOffset.y;
+        const dropY = e.clientY - paneRect.top;
 
-        // Check if touching the snap line area (generous zone around center)
-        const snapZoneTop = (paneRect.height / 2) - BLOCK_HEIGHT - 20;
-        const snapZoneBottom = (paneRect.height / 2) + BLOCK_HEIGHT + 20;
+        // Check if touching the snap line area (generous horizontal band)
+        const centerY = paneRect.height / 2;
+        const snapZoneTop = centerY - BLOCK_HEIGHT;
+        const snapZoneBottom = centerY + BLOCK_HEIGHT;
         const touchingLine = dropY > snapZoneTop && dropY < snapZoneBottom;
 
         const snapLinePos = getSnapLinePosition(draggedTile.placeValue);
@@ -1064,7 +1070,7 @@
           });
         } else {
           finalX = e.clientX - paneRect.left - dragOffset.x;
-          finalY = dropY;
+          finalY = dropY - dragOffset.y;
         }
 
         if (draggedTile.sourceType === 'tray') {
