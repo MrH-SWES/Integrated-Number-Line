@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
   <title>Place Value: Resource Edition</title>
   <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;700;900&display=swap" rel="stylesheet"/>
   <style>
@@ -12,8 +12,10 @@
       --ink:#111827;
       --tray:#1f2937; 
       --accent:#3b82f6;
-      --block-size: 50px;
-      --block-height: 70px;
+      
+      /* Reduced sizes for better fit */
+      --block-size: 40px; 
+      --block-height: 60px;
       
       /* Soft two-color system */
       --whole-bg: #e8eef4;
@@ -24,7 +26,16 @@
       --decimal-border: #fed7aa;
     }
 
-    body{font-family:'Lexend',sans-serif;background:var(--bg);color:var(--ink);height:100vh;overflow:hidden;touch-action:manipulation; user-select: none;}
+    body{
+      font-family:'Lexend',sans-serif;
+      background:var(--bg);
+      color:var(--ink);
+      height:100vh;
+      overflow:hidden;
+      touch-action:none; /* Prevent browser zooming/scrolling globally */
+      user-select: none; /* Prevent text selection */
+      overscroll-behavior: none; /* Prevent bounce effects */
+    }
 
     #app{position:relative;height:calc(100% - 60px);width:100%; display:flex; flex-direction:column;}
 
@@ -82,7 +93,6 @@
     .btn-primary:hover { background: #2563eb; }
     .btn-danger { background: #ef4444; }
     .btn-danger:hover { background: #dc2626; }
-    .btn-success { background: #10b981; }
 
     /* === NUMBER LINE PANEL === */
     #numberLinePanel {
@@ -93,7 +103,7 @@
     }
     
     .zoom-bar-container {
-      margin-bottom: 15px; /* Increased spacing */
+      margin-bottom: 15px;
     }
     
     .zoom-bar {
@@ -122,12 +132,11 @@
       color: #9ca3af;
     }
     
-    /* Increased height to accommodate labels */
     .number-line-container {
       position: relative;
       height: 90px; 
       cursor: ns-resize;
-      overflow: hidden; /* Hide horizontal sliding ticks */
+      overflow: hidden; 
       margin-top: 10px;
     }
     
@@ -136,7 +145,6 @@
       height: 50px;
       position: relative;
       background: linear-gradient(to bottom, transparent 46%, #2c3e50 46%, #2c3e50 54%, transparent 54%);
-      /* Removed overflow:hidden from here so labels can hang out the bottom */
     }
     
     .tick {
@@ -157,7 +165,7 @@
     
     .tick-label {
       position: absolute;
-      top: 55px; /* Pushed down below the line */
+      top: 55px; 
       transform: translateX(-50%);
       font-weight: 600;
       font-size: 0.75rem;
@@ -316,6 +324,8 @@
       border: 2px solid var(--whole-border);
       overflow:hidden;
       transition: transform 0.1s, box-shadow 0.1s;
+      /* CRITICAL for touch drag */
+      touch-action: none; 
     }
     .tile:active{ cursor:grabbing; transform: scale(1.02); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
     /* Ghost tile logic */
@@ -326,17 +336,17 @@
     .digit-block{
       width:var(--block-size); height:var(--block-height);
       display:flex; align-items:center; justify-content:center;
-      font-weight:700; font-size:36px; line-height:1;
+      font-weight:700; font-size:28px; line-height:1;
       color: var(--whole-text);
       flex-shrink: 0; 
     }
     .comma-block{ 
-      width:16px; 
+      width:14px; 
       align-items:flex-end; padding-bottom:10px; 
       flex-shrink: 0;
     }
     .decimal-block{ 
-      width:16px; font-size:36px; font-weight:700; 
+      width:14px; font-size:28px; font-weight:700; 
       align-items:flex-end; padding-bottom:8px; 
       flex-shrink: 0;
     }
@@ -360,7 +370,7 @@
     /* Plus signs between expanded cards */
     .plus-sign {
       position: absolute;
-      font-size: 36px;
+      font-size: 32px;
       font-weight: 700;
       color: #6b7280;
       pointer-events: none;
@@ -440,8 +450,8 @@
 
   <script>
     // ====== CONFIG ======
-    const BLOCK_SIZE = 50;
-    const BLOCK_HEIGHT = 70;
+    const BLOCK_SIZE = 40;
+    const BLOCK_HEIGHT = 60;
     const SNAP_DISTANCE = 40;
     
     const PLACE_VALUES = {
@@ -768,7 +778,7 @@
       const digits = getDigitsArray(sampleVal);
       let width = 0;
       for (let char of digits) {
-        if (char === ',') width += 16;
+        if (char === ',') width += 14;
         else width += BLOCK_SIZE;
       }
       return width;
@@ -878,7 +888,7 @@
         const commas = placeValue === 'thousands' ? 1 : 
                        (placeValue === 'tenThousands' || placeValue === 'hundredThousands') ? 1 :
                        placeValue === 'millions' ? 2 : 0;
-        return ((digits - commas) * BLOCK_SIZE + commas * 16) * scale;
+        return ((digits - commas) * BLOCK_SIZE + commas * 14) * scale;
       }
       return BLOCK_SIZE * scale;
     }
@@ -1091,7 +1101,7 @@
       let width = 0;
       digits.forEach(char => {
         if (char === ',' || char === '.') {
-          width += 16;
+          width += 14;
         } else {
           width += BLOCK_SIZE;
         }
