@@ -335,6 +335,14 @@
     .tile.decimal-tile .digit-block {
       color: var(--decimal-text);
     }
+    
+    /* Ghost preview when dragging */
+    .ghost-preview {
+      position: absolute;
+      opacity: 0.4;
+      pointer-events: none;
+      transition: left 0.1s, top 0.1s;
+    }
 
   </style>
 </head>
@@ -521,12 +529,12 @@
         max = visibleRange;
       }
       
-      // Dot position
-      const dotPosition = ((currentTotal - min) / visibleRange) * 100;
+      // Dot position - calculate precisely where the value falls in the range
+      const dotPosition = ((currentTotal - min) / (max - min)) * 100;
       
       // Draw 11 ticks with labels for ALL of them
       for (let i = 0; i <= 10; i++) {
-        const tickValue = min + (visibleRange * (i / 10));
+        const tickValue = min + ((max - min) * (i / 10));
         const position = (i / 10) * 100;
         
         const tick = document.createElement('div');
@@ -693,12 +701,22 @@
 
     function getPlaceValueOrder(placeValue) {
       // Higher number = higher z-index = on top
+      // Smaller place values on TOP (ones covers tens, tens covers hundreds, etc.)
       // For decimals: tenths on top, then hundredths, then thousandths
-      // For wholes: ones on top, then tens, etc.
+      // For wholes: ones on top, then tens, then hundreds, etc.
       const order = { 
-        thousandths: 100, hundredths: 101, tenths: 102,
-        ones: 103, tens: 104, hundreds: 105, thousands: 106, 
-        tenThousands: 107, hundredThousands: 108, millions: 109
+        // Decimals - tenths highest
+        thousandths: 100, 
+        hundredths: 101, 
+        tenths: 102,
+        // Wholes - ones highest, millions lowest
+        millions: 103,
+        hundredThousands: 104,
+        tenThousands: 105,
+        thousands: 106, 
+        hundreds: 107, 
+        tens: 108, 
+        ones: 109
       };
       return order[placeValue];
     }
@@ -992,6 +1010,7 @@
 
     function updateDragVisual() {
       document.querySelectorAll('[data-dragging="true"]').forEach(el => el.remove());
+      document.querySelectorAll('.ghost-preview').forEach(el => el.remove());
       if (!draggedTile) return;
 
       const isDecimal = isDecimalValue(draggedTile.value);
@@ -1020,6 +1039,40 @@
       const gy = draggedTile.y - dragOffset.y;
       g.style.transform = `translate3d(${gx}px, ${gy}px, 0) rotate(-3deg) scale(1.05)`;
       document.body.appendChild(g);
+      
+      // Show ghost preview at snap position if in snap zone
+      const workPane = document.getElementById('workPane');
+      const paneRect = workPane.getBoundingClientRect();
+      const dropY = draggedTile.y - paneRect.top;
+      const centerY = paneRect.height / 2;
+      const snapZoneTop = centerY - BLOCK_HEIGHT;
+      const snapZoneBottom = centerY + BLOCK_HEIGHT;
+      
+      if (dropY > snapZoneTop && dropY < snapZoneBottom) {
+        const snapPos = getSnapLinePosition(draggedTile.placeValue);
+        
+        // Create ghost showing just the digit (snapped appearance)
+        const ghost = document.createElement('div');
+        ghost.className = `tile ghost-preview${isDecimal ? ' decimal-tile' : ''}`;
+        
+        // For snapped preview, show just the digit(s)
+        const snappedDigits = getDigitsArray(draggedTile.value, false);
+        snappedDigits.forEach(char => {
+          const d = document.createElement('div');
+          if (char === ',') { 
+            d.className = 'digit-block comma-block'; 
+            d.textContent = ','; 
+          } else { 
+            d.className = 'digit-block'; 
+            d.textContent = char; 
+          }
+          ghost.appendChild(d);
+        });
+        
+        ghost.style.left = snapPos.x + 'px';
+        ghost.style.top = snapPos.y + 'px';
+        workPane.appendChild(ghost);
+      }
     }
 
     function handleEnd(e) {
@@ -1085,6 +1138,7 @@
 
       draggedTile = null;
       document.querySelectorAll('[data-dragging="true"]').forEach(el => el.remove());
+      document.querySelectorAll('.ghost-preview').forEach(el => el.remove());
       renderWorkPane();
     }
 
