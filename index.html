@@ -315,18 +315,30 @@
       transition: transform 0.1s, box-shadow 0.1s;
     }
     .tile:active{ cursor:grabbing; transform: scale(1.02); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
-    /* Updated dragging z-index to 10000 so it's always on top of tray and dashboard */
+    /* Ghost tile logic */
     .tile.dragging{ position:fixed; z-index: 10000; opacity:0.95; pointer-events:none; }
     .work-pane-tile{ position:absolute; transition: left 0.2s, top 0.2s; }
 
+    /* --- DIGIT BLOCKS --- */
+    /* IMPORTANT: flex-shrink: 0 ensures the blocks don't squish when commas appear, 
+       preserving exact alignment for the "underlay" effect. */
     .digit-block{
       width:var(--block-size); height:var(--block-height);
       display:flex; align-items:center; justify-content:center;
       font-weight:700; font-size:36px; line-height:1;
       color: var(--whole-text);
+      flex-shrink: 0; 
     }
-    .comma-block{ width:16px; align-items:flex-end; padding-bottom:10px; }
-    .decimal-block{ width:16px; font-size:36px; font-weight:700; align-items:flex-end; padding-bottom:8px; }
+    .comma-block{ 
+      width:16px; 
+      align-items:flex-end; padding-bottom:10px; 
+      flex-shrink: 0;
+    }
+    .decimal-block{ 
+      width:16px; font-size:36px; font-weight:700; 
+      align-items:flex-end; padding-bottom:8px; 
+      flex-shrink: 0;
+    }
 
     /* Decimal tiles */
     .tile.decimal-tile {
@@ -339,8 +351,9 @@
     
     /* Ghost card being dragged */
     .ghost-drag {
-      opacity: 0.9; /* Slightly more opaque for visibility */
+      opacity: 0.9;
       box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+      cursor: grabbing;
     }
     
     /* Plus signs between expanded cards */
@@ -491,21 +504,9 @@
     }
 
     function formatNumberLineLabel(value, decimals) {
-      // Ones and above: no decimal points
       if (decimals <= 1) {
         if (Math.abs(value) >= 1000) {
           return Math.round(value).toLocaleString();
-        }
-        return Math.round(value).toString();
-      }
-      // Decimal zoom levels
-      return value.toFixed(decimals - 1);
-    }
-
-    function formatDotLabel(value, decimals) {
-      if (decimals <= 1) {
-        if (Math.abs(value) >= 1000) {
-          return value.toLocaleString(undefined, { maximumFractionDigits: 0 });
         }
         return Math.round(value).toString();
       }
@@ -526,23 +527,17 @@
       const indicatorPosition = (currentZoomIndex / (ZOOM_LEVELS.length - 1)) * 100;
       zoomIndicator.style.left = `calc(${indicatorPosition}% - 2px)`;
       
-      // Center on the nearest "round" number at this zoom level
-      // e.g., at tens zoom, center on nearest 50 (5 steps)
       const centerValue = Math.round(currentTotal / step) * step;
-      
       let min = centerValue - (visibleRange / 2);
       let max = centerValue + (visibleRange / 2);
       
-      // Don't go below 0
       if (min < 0) {
         min = 0;
         max = visibleRange;
       }
       
-      // Dot position - calculate precisely where the value falls in the range
       const dotPosition = ((currentTotal - min) / (max - min)) * 100;
       
-      // Draw 11 ticks with labels for ALL of them
       for (let i = 0; i <= 10; i++) {
         const tickValue = min + ((max - min) * (i / 10));
         const position = (i / 10) * 100;
@@ -555,7 +550,6 @@
         tick.style.left = position + '%';
         numberLine.appendChild(tick);
         
-        // Label every tick
         const label = document.createElement('div');
         label.className = 'tick-label';
         label.style.left = position + '%';
@@ -563,14 +557,12 @@
         numberLine.appendChild(label);
       }
       
-      // Value dot with label showing FULL current total
       const valueDot = document.createElement('div');
       valueDot.className = 'value-dot';
       valueDot.style.left = Math.max(0, Math.min(100, dotPosition)) + '%';
       
       const dotLabel = document.createElement('div');
       dotLabel.className = 'dot-label';
-      // Show the full number, formatted nicely
       dotLabel.textContent = currentTotal.toLocaleString(undefined, {
         minimumFractionDigits: 0,
         maximumFractionDigits: 3
@@ -671,16 +663,13 @@
     function getDigitsArray(value, showFullDecimal = false) {
       let str;
       if (value < 1) {
-        // Decimal values
         if (value < 0.01) str = value.toFixed(3);
         else if (value < 0.1) str = value.toFixed(2);
         else str = value.toFixed(1);
         
         if (showFullDecimal) {
-          // Show full decimal: "0.2" or "0.02"
           return str.split('');
         } else {
-          // Just the significant digit(s) for snapped cards
           const parts = str.split('.');
           return parts[1].split('');
         }
@@ -703,7 +692,7 @@
       const digits = getDigitsArray(sampleVal);
       let width = 0;
       for (let char of digits) {
-        if (char === ',') width += 20;
+        if (char === ',') width += 16;
         else width += BLOCK_SIZE;
       }
       return width;
@@ -711,13 +700,10 @@
 
     function getPlaceValueOrder(placeValue) {
       // Higher number = higher z-index = on top
-      // Smaller place values on TOP (ones covers tens, tens covers hundreds, etc.)
       const order = { 
-        // Decimals - tenths highest
         thousandths: 100, 
         hundredths: 101, 
         tenths: 102,
-        // Wholes - ones highest, millions lowest
         millions: 103,
         hundredThousands: 104,
         tenThousands: 105,
@@ -764,18 +750,15 @@
           }
           return { x: centerX + offsetX, y: snapY };
         } else {
-          // When collapsed, cards overlap - only rightmost digit shows
           const rightEdgeX = centerX + DECIMAL_SPACING + ((position + 1) * scaledBlockSize);
           const cardWidth = getCardWidthForSnapped(placeValue, scale);
           return { x: rightEdgeX - cardWidth, y: snapY };
         }
       } else {
-        // WHOLE NUMBERS
         const position = wholePlaces.indexOf(placeValue);
         
         if (isExpanded) {
           let offsetX = DECIMAL_SPACING;
-          // Add width of current card
           offsetX += getExpandedCardWidthForPlaceValue(placeValue);
           
           for (let i = 0; i < position; i++) {
@@ -787,10 +770,7 @@
           }
           return { x: centerX - offsetX, y: snapY };
         } else {
-          // *** FIX FOR LAYER/ALIGNMENT ***
-          // Instead of calculating from the left, we anchor to the right.
-          // This ensures that 1, 10, 100, 1000 all end at exactly the same X coordinate,
-          // allowing the 'z-index' to handle the layering correctly regardless of card width/commas.
+          // Right-anchor alignment for stacking
           const rightAnchorX = centerX - DECIMAL_SPACING;
           const cardWidth = getCardWidthForSnapped(placeValue, scale);
           return { x: rightAnchorX - cardWidth, y: snapY };
@@ -809,7 +789,6 @@
     }
     
     function getCardWidthForSnapped(placeValue, scale = 1) {
-      // For snapped cards in collapsed mode
       const decimalDigits = { tenths: 1, hundredths: 2, thousandths: 3 };
       const wholeDigits = { 
         ones: 1, tens: 2, hundreds: 3, 
@@ -821,7 +800,6 @@
       }
       if (wholeDigits[placeValue]) {
         const digits = wholeDigits[placeValue];
-        // Note: thousands has 4 digits but consumes 5 "slots" of width due to comma
         const commas = placeValue === 'thousands' ? 1 : 
                        (placeValue === 'tenThousands' || placeValue === 'hundredThousands') ? 1 :
                        placeValue === 'millions' ? 2 : 0;
@@ -839,8 +817,7 @@
       
       if (snappedTiles.length === 0) return 1;
       
-      // Calculate total width needed
-      let totalWidth = 50; // Base spacing for decimal point area
+      let totalWidth = 50; 
       
       const decimalPlaces = ['tenths', 'hundredths', 'thousandths'];
       const wholePlaces = ['ones', 'tens', 'hundreds', 'thousands', 'tenThousands', 'hundredThousands', 'millions'];
@@ -848,10 +825,9 @@
       if (isExpanded) {
         snappedTiles.forEach((t, i) => {
           totalWidth += getExpandedCardWidthForPlaceValue(t.placeValue);
-          if (i < snappedTiles.length - 1) totalWidth += 40; // gap for plus sign
+          if (i < snappedTiles.length - 1) totalWidth += 40; 
         });
       } else {
-        // When collapsed, count digit slots
         let wholeSlots = 0;
         let decimalSlots = 0;
         
@@ -925,7 +901,6 @@
       const el = document.createElement('div');
       const placeValue = getPlaceValueType(value);
       const isDecimal = isDecimalValue(value);
-      // Tray cards show full decimal (0.2), workspace cards don't
       const showFullDecimal = (source === 'tray') && isDecimal;
       const digits = getDigitsArray(value, showFullDecimal);
 
@@ -967,7 +942,6 @@
       let sum = 0;
       const scale = getScaleFactor();
       
-      // Recalculate positions for snapped tiles
       tiles.forEach(tile => {
         if (tile.snappedToLine) {
           const pos = getSnapLinePosition(tile.placeValue);
@@ -977,16 +951,12 @@
       });
       
       const sortedTiles = [...tiles].sort((a, b) => a.zIndex - b.zIndex);
-      
-      // Get snapped tiles sorted by place value for plus signs
       const snappedTiles = sortedTiles.filter(t => t.snappedToLine);
 
       sortedTiles.forEach(tile => {
         sum += tile.value;
         const isDecimal = isDecimalValue(tile.value);
         
-        // Show full value when expanded OR when not snapped
-        // Show just digits when collapsed and snapped
         const showFullValue = !tile.snappedToLine || isExpanded;
         const showFullDecimal = isDecimal && showFullValue;
         const digits = getDigitsArray(tile.value, showFullDecimal);
@@ -997,7 +967,6 @@
         el.style.top = tile.y + 'px';
         el.style.zIndex = tile.zIndex;
         
-        // Apply scaling for snapped tiles
         if (tile.snappedToLine && scale < 1) {
           el.style.transform = `scale(${scale})`;
           el.style.transformOrigin = isDecimal ? 'left center' : 'right center';
@@ -1022,19 +991,11 @@
         workPane.appendChild(el);
       });
       
-      // Add plus signs between expanded cards
       if (isExpanded && snappedTiles.length > 1) {
-        // Sort by position (left to right)
         const sortedByPosition = [...snappedTiles].sort((a, b) => a.x - b.x);
-        
         for (let i = 0; i < sortedByPosition.length - 1; i++) {
           const currentTile = sortedByPosition[i];
-          const nextTile = sortedByPosition[i + 1];
-          
-          // Calculate plus sign position between cards
-          const currentIsDecimal = isDecimalValue(currentTile.value);
           const currentWidth = getExpandedCardWidth(currentTile.value);
-          
           const plusX = currentTile.x + currentWidth + 5;
           const plusY = (workPane.getBoundingClientRect().height / 2) - 15;
           
@@ -1066,8 +1027,6 @@
     function updateTotal(val) {
       currentTotal = parseFloat(val.toFixed(4));
       document.getElementById('sumText').textContent = new Intl.NumberFormat('en-US').format(currentTotal);
-      
-      // Auto-zoom number line to sensible level
       currentZoomIndex = getSensibleZoomIndex(currentTotal);
       updateNumberLine();
     }
@@ -1083,18 +1042,30 @@
         moved: false, source, value
       };
 
+      // IMMEDIATE GHOST creation for Tray items
+      if (source === 'tray') {
+        gesture.moved = true; // Force moved state
+        beginDrag(gesture, targetRect);
+      }
+
       const onMove = (ev) => {
         if (!gesture) return;
-        if (!gesture.moved && (Math.abs(ev.clientX - gesture.startX) > 5 || Math.abs(ev.clientY - gesture.startY) > 5)) {
-          gesture.moved = true;
-          beginDrag(gesture, targetRect);
+        
+        // Only require drag threshold for workspace items
+        if (!gesture.moved) {
+           if (Math.abs(ev.clientX - gesture.startX) > 5 || Math.abs(ev.clientY - gesture.startY) > 5) {
+             gesture.moved = true;
+             beginDrag(gesture, targetRect);
+           }
         }
+        
         if (gesture.moved) {
           if (!draggedTile) return;
           draggedTile.x = ev.clientX; draggedTile.y = ev.clientY;
           updateDragVisual();
         }
       };
+      
       const onEnd = (ev) => { handleEnd(ev); cleanup(); };
       function cleanup() {
         document.removeEventListener('pointermove', onMove);
@@ -1122,19 +1093,15 @@
 
     function updateDragVisual() {
       document.querySelectorAll('[data-dragging="true"]').forEach(el => el.remove());
-      // *** REMOVED PREVIEW ***
-      document.querySelectorAll('.snap-preview').forEach(el => el.remove());
       
       if (!draggedTile) return;
 
       const isDecimal = isDecimalValue(draggedTile.value);
       
-      // Create the ghost card that follows the cursor
       const ghost = document.createElement('div');
       ghost.className = `tile${isDecimal ? ' decimal-tile' : ''} dragging ghost-drag`;
       ghost.dataset.dragging = 'true';
 
-      // Show full value while dragging
       const digits = getDigitsArray(draggedTile.value, isDecimal);
       digits.forEach(char => {
         const d = document.createElement('div');
@@ -1165,7 +1132,6 @@
       if (e.clientY < paneRect.bottom && e.clientY > paneRect.top) {
         const dropY = e.clientY - paneRect.top;
 
-        // Check if touching the snap line area (generous horizontal band)
         const centerY = paneRect.height / 2;
         const snapZoneTop = centerY - BLOCK_HEIGHT;
         const snapZoneBottom = centerY + BLOCK_HEIGHT;
@@ -1183,7 +1149,6 @@
           finalY = snapLinePos.y;
           snappedToLine = true;
           
-          // Remove any existing tile of the same place value on the snap line
           tiles = tiles.filter(t => {
             if (t.id === draggedTile.id) return true;
             if (t.placeValue === draggedTile.placeValue && t.snappedToLine) {
@@ -1220,7 +1185,6 @@
 
       draggedTile = null;
       document.querySelectorAll('[data-dragging="true"]').forEach(el => el.remove());
-      document.querySelectorAll('.snap-preview').forEach(el => el.remove());
       renderWorkPane();
     }
 
@@ -1237,7 +1201,6 @@
       chart.style.display = chart.style.display === 'block' ? 'none' : 'block';
     });
 
-    // Expand to show place values with gaps
     document.getElementById('expandBtn').addEventListener('click', () => {
       const snappedTiles = tiles.filter(t => t.snappedToLine);
       if (snappedTiles.length === 0) return;
