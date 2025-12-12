@@ -396,6 +396,7 @@
           <div class="zoom-indicator" id="zoomIndicator"></div>
         </div>
         <div class="zoom-labels">
+          <span>0.001</span>
           <span>0.01</span>
           <span>0.1</span>
           <span>1</span>
@@ -428,6 +429,7 @@
         <button class="drawer-tab active" data-drawer="ones">Ones</button>
         <button class="drawer-tab" data-drawer="tenths">Tenths</button>
         <button class="drawer-tab" data-drawer="hundredths">Hundredths</button>
+        <button class="drawer-tab" data-drawer="thousandths">Thousandths</button>
       </div>
       <div id="baseTiles">
         <div class="base-row" id="baseRow"></div>
@@ -445,6 +447,7 @@
     const PLACE_VALUES = {
       tenths: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
       hundredths: [0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09],
+      thousandths: [0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009],
       ones: [1, 2, 3, 4, 5, 6, 7, 8, 9],
       tens: [10, 20, 30, 40, 50, 60, 70, 80, 90],
       hundreds: [100, 200, 300, 400, 500, 600, 700, 800, 900],
@@ -456,6 +459,7 @@
 
     // ====== NUMBER LINE CONFIG ======
     const ZOOM_LEVELS = [
+      { name: 'Thousandths', step: 0.001, decimals: 4 },
       { name: 'Hundredths', step: 0.01, decimals: 3 },
       { name: 'Tenths', step: 0.1, decimals: 2 },
       { name: 'Ones', step: 1, decimals: 1 },
@@ -473,7 +477,8 @@
     let currentTotal = 0;
     let challengeMode = false;
     let targetNumber = 0;
-    let currentZoomIndex = 2; // Start at Ones
+    let currentZoomIndex = 3; // Start at Ones
+    let isExpanded = false; // Track if cards are expanded
 
     // Drag State
     let draggedTile = null;
@@ -483,20 +488,21 @@
 
     // ====== NUMBER LINE FUNCTIONS ======
     function getSensibleZoomIndex(value) {
-      if (value === 0) return 2; // Ones
+      if (value === 0) return 3; // Ones
       
       // Find the magnitude of the number
       const absVal = Math.abs(value);
       
-      if (absVal < 0.1) return 0;      // Hundredths
-      if (absVal < 1) return 1;         // Tenths
-      if (absVal < 10) return 2;        // Ones
-      if (absVal < 100) return 3;       // Tens
-      if (absVal < 1000) return 4;      // Hundreds
-      if (absVal < 10000) return 5;     // Thousands
-      if (absVal < 100000) return 6;    // Ten Thousands
-      if (absVal < 1000000) return 7;   // Hundred Thousands
-      return 8;                          // Millions
+      if (absVal < 0.01) return 0;      // Thousandths
+      if (absVal < 0.1) return 1;       // Hundredths
+      if (absVal < 1) return 2;         // Tenths
+      if (absVal < 10) return 3;        // Ones
+      if (absVal < 100) return 4;       // Tens
+      if (absVal < 1000) return 5;      // Hundreds
+      if (absVal < 10000) return 6;     // Thousands
+      if (absVal < 100000) return 7;    // Ten Thousands
+      if (absVal < 1000000) return 8;   // Hundred Thousands
+      return 9;                          // Millions
     }
 
     function formatNumberLineLabel(value, decimals) {
@@ -734,27 +740,59 @@
       const snapY = (paneRect.height / 2) - (BLOCK_HEIGHT / 2);
       const centerX = pointRect.left - paneRect.left + (pointRect.width / 2);
       
-      const DECIMAL_SPACING = 15; // Space between cards and decimal point
+      const DECIMAL_SPACING = 12;
+      const EXPAND_GAP = isExpanded ? 8 : 0;
       
       const isDecimal = ['thousandths','hundredths','tenths'].includes(placeValue);
       
+      // Calculate scale factor based on number of tiles
+      const scale = getScaleFactor();
+      const scaledBlockSize = BLOCK_SIZE * scale;
+      
       if (isDecimal) {
-        // Decimals go to the RIGHT of the decimal point
-        // tenths is closest, hundredths next, etc.
         const decimalOrder = { tenths: 0, hundredths: 1, thousandths: 2 };
-        const offset = decimalOrder[placeValue] * BLOCK_SIZE;
+        const position = decimalOrder[placeValue];
+        const offset = position * (scaledBlockSize + EXPAND_GAP);
         return { x: centerX + DECIMAL_SPACING + offset, y: snapY };
       } else {
-        // Whole numbers go to the LEFT of the decimal point
-        // ones is closest, then tens, hundreds, etc.
         const wholeOrder = { ones: 0, tens: 1, hundreds: 2, thousands: 3, tenThousands: 4, hundredThousands: 5, millions: 6 };
-        const offset = wholeOrder[placeValue] * BLOCK_SIZE;
-        // Additional offset for commas in thousands+
-        let commaOffset = 0;
-        if (['thousands', 'tenThousands', 'hundredThousands'].includes(placeValue)) commaOffset = 20;
-        if (['millions'].includes(placeValue)) commaOffset = 40;
-        return { x: centerX - DECIMAL_SPACING - BLOCK_SIZE - offset - commaOffset, y: snapY };
+        const position = wholeOrder[placeValue];
+        const offset = position * (scaledBlockSize + EXPAND_GAP);
+        return { x: centerX - DECIMAL_SPACING - scaledBlockSize - offset, y: snapY };
       }
+    }
+    
+    function getScaleFactor() {
+      const workPane = document.getElementById('workPane');
+      if (!workPane) return 1;
+      
+      const paneWidth = workPane.getBoundingClientRect().width;
+      const snappedTiles = tiles.filter(t => t.snappedToLine);
+      
+      if (snappedTiles.length === 0) return 1;
+      
+      // Count how many digit slots we need on each side
+      let wholeSlots = 0;
+      let decimalSlots = 0;
+      
+      snappedTiles.forEach(t => {
+        if (isDecimalValue(t.value)) {
+          const order = { tenths: 1, hundredths: 2, thousandths: 3 };
+          decimalSlots = Math.max(decimalSlots, order[t.placeValue] || 1);
+        } else {
+          const order = { ones: 1, tens: 2, hundreds: 3, thousands: 4, tenThousands: 5, hundredThousands: 6, millions: 7 };
+          wholeSlots = Math.max(wholeSlots, order[t.placeValue] || 1);
+        }
+      });
+      
+      const totalSlots = wholeSlots + decimalSlots;
+      const expandGap = isExpanded ? 8 : 0;
+      const neededWidth = (totalSlots * (BLOCK_SIZE + expandGap)) + 60; // 60 for decimal point area
+      
+      if (neededWidth > paneWidth * 0.9) {
+        return (paneWidth * 0.9) / neededWidth;
+      }
+      return 1;
     }
 
     function findOverlayTarget(dropX, dropY, droppedPlaceValue, excludeId) {
@@ -847,12 +885,22 @@
       workPane.querySelectorAll('.work-pane-tile').forEach(el => el.remove());
       
       let sum = 0;
+      const scale = getScaleFactor();
+      
+      // Recalculate positions for snapped tiles
+      tiles.forEach(tile => {
+        if (tile.snappedToLine) {
+          const pos = getSnapLinePosition(tile.placeValue);
+          tile.x = pos.x;
+          tile.y = pos.y;
+        }
+      });
+      
       const sortedTiles = [...tiles].sort((a, b) => a.zIndex - b.zIndex);
 
       sortedTiles.forEach(tile => {
         sum += tile.value;
         const isDecimal = isDecimalValue(tile.value);
-        // Show full decimal for floating cards, just digits for snapped
         const showFullDecimal = isDecimal && !tile.snappedToLine;
         const digits = getDigitsArray(tile.value, showFullDecimal);
 
@@ -861,6 +909,12 @@
         el.style.left = tile.x + 'px';
         el.style.top = tile.y + 'px';
         el.style.zIndex = tile.zIndex;
+        
+        // Apply scaling for snapped tiles
+        if (tile.snappedToLine && scale < 1) {
+          el.style.transform = `scale(${scale})`;
+          el.style.transformOrigin = isDecimal ? 'left center' : 'right center';
+        }
         
         digits.forEach(char => {
           const d = document.createElement('div');
@@ -981,35 +1035,35 @@
       const paneRect = workPane.getBoundingClientRect();
 
       if (e.clientY < paneRect.bottom && e.clientY > paneRect.top) {
-        let dropX = e.clientX - paneRect.left - dragOffset.x;
         let dropY = e.clientY - paneRect.top - dragOffset.y;
 
-        const snapLinePos = getSnapLinePosition(draggedTile.placeValue);
-        const distanceToLine = Math.sqrt(
-          Math.pow(dropX - snapLinePos.x, 2) + 
-          Math.pow(dropY - snapLinePos.y, 2)
-        );
+        // Check if touching the snap line area (generous zone around center)
+        const snapZoneTop = (paneRect.height / 2) - BLOCK_HEIGHT - 20;
+        const snapZoneBottom = (paneRect.height / 2) + BLOCK_HEIGHT + 20;
+        const touchingLine = dropY > snapZoneTop && dropY < snapZoneBottom;
 
-        let finalX, finalY;
-        let snappedToLine = false;
+        const snapLinePos = getSnapLinePosition(draggedTile.placeValue);
         const order = getPlaceValueOrder(draggedTile.placeValue);
         let zIndex = 1000 + order;
 
-        if (distanceToLine < SNAP_LINE_DISTANCE) {
+        let finalX, finalY;
+        let snappedToLine = false;
+
+        if (touchingLine) {
           finalX = snapLinePos.x;
           finalY = snapLinePos.y;
           snappedToLine = true;
           
           // Remove any existing tile of the same place value on the snap line
           tiles = tiles.filter(t => {
-            if (t.id === draggedTile.id) return true; // Don't filter out the tile we're moving
+            if (t.id === draggedTile.id) return true;
             if (t.placeValue === draggedTile.placeValue && t.snappedToLine) {
-              return false; // Remove existing same-place-value tile
+              return false;
             }
             return true;
           });
         } else {
-          finalX = dropX;
+          finalX = e.clientX - paneRect.left - dragOffset.x;
           finalY = dropY;
         }
 
@@ -1095,50 +1149,18 @@
       chart.style.display = chart.style.display === 'block' ? 'none' : 'block';
     });
 
-    // Expand to show place values
+    // Expand to show place values with gaps
     document.getElementById('expandBtn').addEventListener('click', () => {
-      // Get all tiles snapped to line
       const snappedTiles = tiles.filter(t => t.snappedToLine);
       if (snappedTiles.length === 0) return;
       
-      // Convert each tile to its expanded form (e.g., 3 in tens place = 30)
-      const expandedTiles = [];
-      const workPane = document.getElementById('workPane');
-      const paneRect = workPane.getBoundingClientRect();
+      isExpanded = !isExpanded;
       
-      // Calculate starting position for expanded layout
-      const startY = 50;
-      let currentY = startY;
-      const ROW_HEIGHT = BLOCK_HEIGHT + 20;
+      const btn = document.getElementById('expandBtn');
+      btn.innerHTML = isExpanded 
+        ? '<span class="btn-icon">🔗</span> Collapse' 
+        : '<span class="btn-icon">💥</span> Expand';
       
-      // Sort by place value order (largest first)
-      snappedTiles.sort((a, b) => {
-        const orderA = getPlaceValueOrder(a.placeValue);
-        const orderB = getPlaceValueOrder(b.placeValue);
-        // Lower order number = larger place value
-        return orderA - orderB;
-      });
-      
-      snappedTiles.forEach((tile, index) => {
-        // Get the actual expanded value
-        const expandedValue = tile.value;
-        const placeValue = tile.placeValue;
-        
-        expandedTiles.push({
-          id: Date.now() + Math.random(),
-          value: expandedValue,
-          placeValue: placeValue,
-          x: 50,
-          y: currentY,
-          snappedToLine: false,
-          zIndex: 1000 + index
-        });
-        
-        currentY += ROW_HEIGHT;
-      });
-      
-      // Replace tiles with expanded versions
-      tiles = expandedTiles;
       renderWorkPane();
     });
 
