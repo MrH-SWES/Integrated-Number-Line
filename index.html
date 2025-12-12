@@ -315,7 +315,8 @@
       transition: transform 0.1s, box-shadow 0.1s;
     }
     .tile:active{ cursor:grabbing; transform: scale(1.02); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
-    .tile.dragging{ position:fixed; z-index: 9999; opacity:0.95; pointer-events:none; }
+    /* Updated dragging z-index to 10000 so it's always on top of tray and dashboard */
+    .tile.dragging{ position:fixed; z-index: 10000; opacity:0.95; pointer-events:none; }
     .work-pane-tile{ position:absolute; transition: left 0.2s, top 0.2s; }
 
     .digit-block{
@@ -338,21 +339,8 @@
     
     /* Ghost card being dragged */
     .ghost-drag {
-      opacity: 0.6;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-    }
-    
-    /* Solid preview at snap position */
-    .snap-preview {
-      position: absolute;
-      pointer-events: none;
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
-      animation: pulse-border 1s ease-in-out infinite;
-    }
-    
-    @keyframes pulse-border {
-      0%, 100% { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5); }
-      50% { box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.3); }
+      opacity: 0.9; /* Slightly more opaque for visibility */
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
     }
     
     /* Plus signs between expanded cards */
@@ -369,7 +357,6 @@
 </head>
 <body>
 
-  <!-- Dashboard -->
   <div id="dashboard">
     <div class="dash-group">
       <button class="btn btn-danger" id="resetBtn"><span class="btn-icon">🗑</span> Clear</button>
@@ -385,13 +372,11 @@
     </div>
   </div>
 
-  <!-- Multiplication Chart Popup -->
   <div id="multChart">
     <div class="chart-grid" id="gridContainer"></div>
   </div>
 
   <div id="app">
-    <!-- Number Line Panel -->
     <div id="numberLinePanel">
       <div class="zoom-bar-container">
         <div class="zoom-bar">
@@ -727,8 +712,6 @@
     function getPlaceValueOrder(placeValue) {
       // Higher number = higher z-index = on top
       // Smaller place values on TOP (ones covers tens, tens covers hundreds, etc.)
-      // For decimals: tenths on top, then hundredths, then thousandths
-      // For wholes: ones on top, then tens, then hundreds, etc.
       const order = { 
         // Decimals - tenths highest
         thousandths: 100, 
@@ -757,26 +740,21 @@
       const centerX = pointRect.left - paneRect.left + (pointRect.width / 2);
       
       const DECIMAL_SPACING = 8;
-      const EXPAND_GAP = isExpanded ? 40 : 0; // Room for plus signs
+      const EXPAND_GAP = isExpanded ? 40 : 0; 
       
-      // Calculate scale factor based on number of tiles
       const scale = getScaleFactor();
       const scaledBlockSize = BLOCK_SIZE * scale;
       
       const decimalPlaces = ['tenths', 'hundredths', 'thousandths'];
       const wholePlaces = ['ones', 'tens', 'hundreds', 'thousands', 'tenThousands', 'hundredThousands', 'millions'];
       
-      // Get currently snapped tiles to calculate positions
       const snappedTiles = tiles.filter(t => t.snappedToLine);
       
       if (decimalPlaces.includes(placeValue)) {
         const position = decimalPlaces.indexOf(placeValue);
         
         if (isExpanded) {
-          // When expanded, calculate cumulative offset based on actual card widths
           let offsetX = DECIMAL_SPACING;
-          
-          // Add width of all previous decimal cards that are actually placed, plus gaps
           for (let i = 0; i < position; i++) {
             const prevPlaceValue = decimalPlaces[i];
             const hasTile = snappedTiles.some(t => t.placeValue === prevPlaceValue);
@@ -784,7 +762,6 @@
               offsetX += getExpandedCardWidthForPlaceValue(prevPlaceValue) + EXPAND_GAP;
             }
           }
-          
           return { x: centerX + offsetX, y: snapY };
         } else {
           // When collapsed, cards overlap - only rightmost digit shows
@@ -793,16 +770,14 @@
           return { x: rightEdgeX - cardWidth, y: snapY };
         }
       } else {
+        // WHOLE NUMBERS
         const position = wholePlaces.indexOf(placeValue);
         
         if (isExpanded) {
-          // When expanded, calculate cumulative offset from the right
           let offsetX = DECIMAL_SPACING;
-          
           // Add width of current card
           offsetX += getExpandedCardWidthForPlaceValue(placeValue);
           
-          // Add width of all smaller place value cards that are actually placed, plus gaps
           for (let i = 0; i < position; i++) {
             const prevPlaceValue = wholePlaces[i];
             const hasTile = snappedTiles.some(t => t.placeValue === prevPlaceValue);
@@ -810,18 +785,20 @@
               offsetX += getExpandedCardWidthForPlaceValue(prevPlaceValue) + EXPAND_GAP;
             }
           }
-          
           return { x: centerX - offsetX, y: snapY };
         } else {
-          // When collapsed, position by single digit slots
-          const offset = position * scaledBlockSize;
-          return { x: centerX - DECIMAL_SPACING - scaledBlockSize - offset, y: snapY };
+          // *** FIX FOR LAYER/ALIGNMENT ***
+          // Instead of calculating from the left, we anchor to the right.
+          // This ensures that 1, 10, 100, 1000 all end at exactly the same X coordinate,
+          // allowing the 'z-index' to handle the layering correctly regardless of card width/commas.
+          const rightAnchorX = centerX - DECIMAL_SPACING;
+          const cardWidth = getCardWidthForSnapped(placeValue, scale);
+          return { x: rightAnchorX - cardWidth, y: snapY };
         }
       }
     }
     
     function getExpandedCardWidthForPlaceValue(placeValue) {
-      // Get sample value for this place value
       const sampleValues = {
         tenths: 0.1, hundredths: 0.01, thousandths: 0.001,
         ones: 1, tens: 10, hundreds: 100, thousands: 1000,
@@ -844,6 +821,7 @@
       }
       if (wholeDigits[placeValue]) {
         const digits = wholeDigits[placeValue];
+        // Note: thousands has 4 digits but consumes 5 "slots" of width due to comma
         const commas = placeValue === 'thousands' ? 1 : 
                        (placeValue === 'tenThousands' || placeValue === 'hundredThousands') ? 1 :
                        placeValue === 'millions' ? 2 : 0;
@@ -868,7 +846,6 @@
       const wholePlaces = ['ones', 'tens', 'hundreds', 'thousands', 'tenThousands', 'hundredThousands', 'millions'];
       
       if (isExpanded) {
-        // When expanded, sum actual card widths plus gaps
         snappedTiles.forEach((t, i) => {
           totalWidth += getExpandedCardWidthForPlaceValue(t.placeValue);
           if (i < snappedTiles.length - 1) totalWidth += 40; // gap for plus sign
@@ -1145,7 +1122,9 @@
 
     function updateDragVisual() {
       document.querySelectorAll('[data-dragging="true"]').forEach(el => el.remove());
+      // *** REMOVED PREVIEW ***
       document.querySelectorAll('.snap-preview').forEach(el => el.remove());
+      
       if (!draggedTile) return;
 
       const isDecimal = isDecimalValue(draggedTile.value);
@@ -1176,31 +1155,6 @@
       const gy = draggedTile.y - dragOffset.y;
       ghost.style.transform = `translate3d(${gx}px, ${gy}px, 0) rotate(-2deg)`;
       document.body.appendChild(ghost);
-      
-      // Show solid preview at snap position
-      const workPane = document.getElementById('workPane');
-      const snapPos = getSnapLinePosition(draggedTile.placeValue);
-      
-      const preview = document.createElement('div');
-      preview.className = `tile snap-preview${isDecimal ? ' decimal-tile' : ''}`;
-      
-      // For snap preview, show just the digit(s) as it will appear when snapped
-      const snappedDigits = getDigitsArray(draggedTile.value, false);
-      snappedDigits.forEach(char => {
-        const d = document.createElement('div');
-        if (char === ',') { 
-          d.className = 'digit-block comma-block'; 
-          d.textContent = ','; 
-        } else { 
-          d.className = 'digit-block'; 
-          d.textContent = char; 
-        }
-        preview.appendChild(d);
-      });
-      
-      preview.style.left = snapPos.x + 'px';
-      preview.style.top = snapPos.y + 'px';
-      workPane.appendChild(preview);
     }
 
     function handleEnd(e) {
