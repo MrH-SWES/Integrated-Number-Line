@@ -133,6 +133,7 @@
       height: 50px;
       position: relative;
       background: linear-gradient(to bottom, transparent 46%, #2c3e50 46%, #2c3e50 54%, transparent 54%);
+      overflow: hidden; /* Ensure ticks sliding in/out don't break layout */
     }
     
     .tick {
@@ -172,7 +173,7 @@
       transform: translate(-50%, -50%);
       z-index: 10;
       box-shadow: 0 3px 8px rgba(0,0,0,0.3);
-      transition: left 0.3s ease;
+      /* Removed transition: left 0.3s ease; -> We are now animating this manually in JS loop */
     }
     
     .dot-label {
@@ -320,8 +321,6 @@
     .work-pane-tile{ position:absolute; transition: left 0.2s, top 0.2s; }
 
     /* --- DIGIT BLOCKS --- */
-    /* IMPORTANT: flex-shrink: 0 ensures the blocks don't squish when commas appear, 
-       preserving exact alignment for the "underlay" effect. */
     .digit-block{
       width:var(--block-size); height:var(--block-height);
       display:flex; align-items:center; justify-content:center;
@@ -442,7 +441,6 @@
     const BLOCK_SIZE = 50;
     const BLOCK_HEIGHT = 70;
     const SNAP_DISTANCE = 40;
-    const SNAP_LINE_DISTANCE = 80; 
     
     const PLACE_VALUES = {
       tenths: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
@@ -478,29 +476,31 @@
     let currentZoomIndex = 3; // Start at Ones
     let isExpanded = false; // Track if cards are expanded
 
+    // === NEW: Lazy Camera State ===
+    let currentViewCenter = 0; // Where the center of screen IS
+    let targetViewCenter = 0;  // Where the center of screen WANTS to be
+    let isAnimatingView = false;
+
     // Drag State
     let draggedTile = null;
     let dragOffset = {x: 0, y: 0};
     let gesture = null;
     let lastTouchDistance = null;
 
-    // ====== NUMBER LINE FUNCTIONS ======
+    // ====== NUMBER LINE LOGIC ======
     function getSensibleZoomIndex(value) {
       if (value === 0) return 3; // Ones
-      
-      // Find the magnitude of the number
       const absVal = Math.abs(value);
-      
-      if (absVal < 0.01) return 0;      // Thousandths
-      if (absVal < 0.1) return 1;       // Hundredths
-      if (absVal < 1) return 2;         // Tenths
-      if (absVal < 10) return 3;        // Ones
-      if (absVal < 100) return 4;       // Tens
-      if (absVal < 1000) return 5;      // Hundreds
-      if (absVal < 10000) return 6;     // Thousands
-      if (absVal < 100000) return 7;    // Ten Thousands
-      if (absVal < 1000000) return 8;   // Hundred Thousands
-      return 9;                          // Millions
+      if (absVal < 0.01) return 0;
+      if (absVal < 0.1) return 1;
+      if (absVal < 1) return 2;
+      if (absVal < 10) return 3;
+      if (absVal < 100) return 4;
+      if (absVal < 1000) return 5;
+      if (absVal < 10000) return 6;
+      if (absVal < 100000) return 7;
+      if (absVal < 1000000) return 8;
+      return 9;
     }
 
     function formatNumberLineLabel(value, decimals) {
@@ -513,7 +513,36 @@
       return value.toFixed(decimals - 1);
     }
 
-    function updateNumberLine() {
+    // === NEW: Animation Loop for Smooth Sliding ===
+    function startViewAnimation() {
+      if (isAnimatingView) return;
+      isAnimatingView = true;
+      requestAnimationFrame(animateViewStep);
+    }
+
+    function animateViewStep() {
+      // Linear Interpolation (Lerp) for smooth slide
+      // 0.05 is the speed factor (lower = slower/smoother)
+      const diff = targetViewCenter - currentViewCenter;
+      
+      // If we are very close, snap to target and stop
+      if (Math.abs(diff) < 0.0001) {
+        currentViewCenter = targetViewCenter;
+        renderNumberLine();
+        isAnimatingView = false;
+        return;
+      }
+
+      currentViewCenter += diff * 0.05;
+      renderNumberLine();
+      
+      if (isAnimatingView) {
+        requestAnimationFrame(animateViewStep);
+      }
+    }
+
+    // === NEW: Render function uses currentViewCenter instead of currentTotal ===
+    function renderNumberLine() {
       const numberLine = document.getElementById('numberLine');
       const zoomIndicator = document.getElementById('zoomIndicator');
       numberLine.innerHTML = '';
@@ -521,55 +550,132 @@
       const zoom = ZOOM_LEVELS[currentZoomIndex];
       const step = zoom.step;
       const decimals = zoom.decimals;
-      const visibleRange = step * 10;
+      const visibleRange = step * 10; // We show roughly 10 steps
       
       // Update zoom indicator
       const indicatorPosition = (currentZoomIndex / (ZOOM_LEVELS.length - 1)) * 100;
       zoomIndicator.style.left = `calc(${indicatorPosition}% - 2px)`;
       
-      const centerValue = Math.round(currentTotal / step) * step;
-      let min = centerValue - (visibleRange / 2);
-      let max = centerValue + (visibleRange / 2);
+      // Calculate screen boundaries based on VIEW CENTER, not total
+      let min = currentViewCenter - (visibleRange / 2);
+      let max = currentViewCenter + (visibleRange / 2);
       
+      // Hard clamp at 0 for left side
       if (min < 0) {
         min = 0;
         max = visibleRange;
       }
       
+      // Calculate Dot Position based on ACTUAL TOTAL
+      // This allows the dot to move independently of the grid
       const dotPosition = ((currentTotal - min) / (max - min)) * 100;
       
-      for (let i = 0; i <= 10; i++) {
-        const tickValue = min + ((max - min) * (i / 10));
-        const position = (i / 10) * 100;
+      // Draw Ticks
+      // We want ticks to be "rounded" to the step.
+      // e.g. if min is 4.2 and step is 1, we want ticks at 5, 6, 7...
+      const startTick = Math.ceil(min / step) * step;
+      const endTick = Math.floor(max / step) * step;
+      
+      // We'll draw a few extra on sides to handle sliding cleanly
+      // But for simplicity in this DOM approach, we stick to the grid range
+      // Let's draw ticks based on percentage of the visible window
+      
+      // Iterate through sensible snap points within the window
+      // To keep it looking like a "sliding tape", we iterate roughly -1 to 11 relative to start
+      const firstMajor = Math.floor(min / step) * step;
+      
+      for (let v = firstMajor; v <= max + step; v += step) {
+        // Fix float precision issues
+        const val = parseFloat(v.toFixed(4));
+        if (val < min) continue;
+        if (val > max) break;
+        
+        const posPercent = ((val - min) / (max - min)) * 100;
         
         const tick = document.createElement('div');
         tick.className = 'tick';
-        if (i === 0 || i === 5 || i === 10) {
-          tick.classList.add('major');
-        }
-        tick.style.left = position + '%';
+        
+        // Major ticks at 0, 5, 10, 15... relative to the step magnitude
+        // e.g. at step 1: 0, 5, 10 are major.
+        // at step 0.1: 0.5, 1.0 are major.
+        const ratio = Math.round(val / step);
+        if (ratio % 5 === 0) tick.classList.add('major');
+        
+        tick.style.left = posPercent + '%';
         numberLine.appendChild(tick);
         
         const label = document.createElement('div');
         label.className = 'tick-label';
-        label.style.left = position + '%';
-        label.textContent = formatNumberLineLabel(tickValue, decimals);
+        label.style.left = posPercent + '%';
+        label.textContent = formatNumberLineLabel(val, decimals);
         numberLine.appendChild(label);
       }
       
+      // Value Dot
       const valueDot = document.createElement('div');
       valueDot.className = 'value-dot';
-      valueDot.style.left = Math.max(0, Math.min(100, dotPosition)) + '%';
       
-      const dotLabel = document.createElement('div');
-      dotLabel.className = 'dot-label';
-      dotLabel.textContent = currentTotal.toLocaleString(undefined, {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 3
-      });
-      valueDot.appendChild(dotLabel);
+      // If off screen (left), hide or pin? Let's just let it slide off.
+      // But we clamp visual rendering 0-100 to prevent scrollbar issues if logic fails
+      if (dotPosition >= -5 && dotPosition <= 105) {
+        valueDot.style.left = dotPosition + '%';
+        
+        const dotLabel = document.createElement('div');
+        dotLabel.className = 'dot-label';
+        dotLabel.textContent = currentTotal.toLocaleString(undefined, {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 3
+        });
+        valueDot.appendChild(dotLabel);
+        numberLine.appendChild(valueDot);
+      }
+    }
+
+    // Update the Number Line logic to trigger animations
+    // instead of instant updates
+    function updateNumberLineTarget() {
+      const zoom = ZOOM_LEVELS[currentZoomIndex];
+      const step = zoom.step;
+      const visibleRange = step * 10;
       
-      numberLine.appendChild(valueDot);
+      // Logic:
+      // If currentTotal is within the "Safety Zone" (middle 60% of screen), don't move view.
+      // If currentTotal pushes the edge, slide view to Center it.
+      
+      const distFromCenter = Math.abs(currentTotal - targetViewCenter);
+      const threshold = visibleRange * 0.35; // 35% from center = 70% safe zone
+      
+      if (distFromCenter > threshold) {
+        // We are near edge. Slide to new center.
+        // We set the target to the currentTotal so it centers nicely.
+        // However, we clamp min to range/2 so we don't show negative numbers.
+        let newTarget = currentTotal;
+        if (newTarget < visibleRange / 2) newTarget = visibleRange / 2;
+        
+        targetViewCenter = newTarget;
+        startViewAnimation();
+      } else {
+        // We are safe. Just render to move the dot.
+        // We still trigger animation in case we were already moving, 
+        // or just call render if we are static.
+        if (!isAnimatingView) {
+           renderNumberLine();
+        }
+      }
+    }
+
+    // Force an immediate snap (for zooms)
+    function snapNumberLine() {
+       const zoom = ZOOM_LEVELS[currentZoomIndex];
+       const visibleRange = zoom.step * 10;
+       
+       let newTarget = currentTotal;
+       if (newTarget < visibleRange / 2) newTarget = visibleRange / 2;
+       
+       targetViewCenter = newTarget;
+       currentViewCenter = newTarget;
+       isAnimatingView = false;
+       renderNumberLine();
     }
 
     // Number line zoom controls
@@ -580,10 +686,10 @@
         e.preventDefault();
         if (e.deltaY < 0 && currentZoomIndex < ZOOM_LEVELS.length - 1) {
           currentZoomIndex++;
-          updateNumberLine();
+          snapNumberLine(); // Snap on zoom
         } else if (e.deltaY > 0 && currentZoomIndex > 0) {
           currentZoomIndex--;
-          updateNumberLine();
+          snapNumberLine(); // Snap on zoom
         }
       }
     });
@@ -603,10 +709,10 @@
         if (Math.abs(delta) > 15) {
           if (delta > 0 && currentZoomIndex < ZOOM_LEVELS.length - 1) {
             currentZoomIndex++;
-            updateNumberLine();
+            snapNumberLine();
           } else if (delta < 0 && currentZoomIndex > 0) {
             currentZoomIndex--;
-            updateNumberLine();
+            snapNumberLine();
           }
           lastTouchDistance = currentDistance;
         }
@@ -699,7 +805,6 @@
     }
 
     function getPlaceValueOrder(placeValue) {
-      // Higher number = higher z-index = on top
       const order = { 
         thousandths: 100, 
         hundredths: 101, 
@@ -1027,8 +1132,12 @@
     function updateTotal(val) {
       currentTotal = parseFloat(val.toFixed(4));
       document.getElementById('sumText').textContent = new Intl.NumberFormat('en-US').format(currentTotal);
-      currentZoomIndex = getSensibleZoomIndex(currentTotal);
-      updateNumberLine();
+      
+      // Auto-zoom to sensible level if we made a huge jump (optional, but good for UX)
+      // currentZoomIndex = getSensibleZoomIndex(currentTotal);
+      
+      // Trigger lazy camera update
+      updateNumberLineTarget();
     }
 
     // ====== DRAG HANDLERS ======
@@ -1042,16 +1151,14 @@
         moved: false, source, value
       };
 
-      // IMMEDIATE GHOST creation for Tray items
       if (source === 'tray') {
-        gesture.moved = true; // Force moved state
+        gesture.moved = true; 
         beginDrag(gesture, targetRect);
       }
 
       const onMove = (ev) => {
         if (!gesture) return;
         
-        // Only require drag threshold for workspace items
         if (!gesture.moved) {
            if (Math.abs(ev.clientX - gesture.startX) > 5 || Math.abs(ev.clientY - gesture.startY) > 5) {
              gesture.moved = true;
@@ -1235,7 +1342,7 @@
     buildMultChart();
     renderActiveDrawer();
     renderWorkPane();
-    updateNumberLine();
+    snapNumberLine(); // Initial render
 
   </script>
 </body>
