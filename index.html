@@ -61,6 +61,65 @@
       display: flex;
       align-items: center;
       gap: 8px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    #totalDisplay:hover {
+      border-color: var(--accent);
+    }
+    #totalDisplay.editing {
+      display: none;
+    }
+    
+    #numberInputWrapper {
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+    #numberInputWrapper.active {
+      display: flex;
+    }
+    
+    #numberInput {
+      font-size: 20px;
+      font-weight: 900;
+      color: #374151;
+      background: white;
+      padding: 4px 12px;
+      border-radius: 25px;
+      min-width: 80px;
+      text-align: center;
+      border: 2px solid var(--accent);
+      font-family: inherit;
+      outline: none;
+      width: 140px;
+    }
+    
+    #inputConfirm {
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #inputCancel {
+      background: #6b7280;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .btn {
@@ -375,9 +434,14 @@
   <div id="dashboard">
     <div class="dash-group">
       <button class="btn btn-danger" id="resetBtn"><span class="btn-icon">🗑</span> Clear</button>
-      <div id="totalDisplay">
+      <div id="totalDisplay" title="Click to enter a number">
         <span id="sumText">0</span>
         <button class="btn btn-primary" id="speakBtn" style="padding:4px 8px; border-radius:20px; min-width:auto;" title="Read Aloud">🔊</button>
+      </div>
+      <div id="numberInputWrapper">
+        <input type="text" id="numberInput" placeholder="Enter number..." />
+        <button id="inputConfirm" title="Confirm">✓</button>
+        <button id="inputCancel" title="Cancel">✕</button>
       </div>
     </div>
     <div class="dash-group">
@@ -643,7 +707,7 @@
       const snapY = (paneRect.height / 2) - (BLOCK_HEIGHT / 2);
       const centerX = pointRect.left - paneRect.left + (pointRect.width / 2);
       const DECIMAL_SPACING = 8;
-      const EXPAND_GAP = 50; // Space for plus sign
+      const EXPAND_GAP = 30; // Reduced gap for plus signs
       const scale = getScaleFactor();
       const scaledBlockSize = BLOCK_SIZE * scale;
       
@@ -657,7 +721,7 @@
           let offsetX = DECIMAL_SPACING;
           for (let i = 0; i < position; i++) {
             if (snappedTiles.some(t => t.placeValue === decimalPlaces[i])) {
-              offsetX += getExpandedCardWidthForPlaceValue(decimalPlaces[i]) + EXPAND_GAP;
+              offsetX += getExpandedCardWidthForPlaceValue(decimalPlaces[i]) * scale + EXPAND_GAP;
             }
           }
           return { x: centerX + offsetX, y: snapY };
@@ -668,10 +732,10 @@
       } else {
         const position = wholePlaces.indexOf(placeValue);
         if (isExpanded) {
-          let offsetX = DECIMAL_SPACING + getExpandedCardWidthForPlaceValue(placeValue);
+          let offsetX = DECIMAL_SPACING + getExpandedCardWidthForPlaceValue(placeValue) * scale;
           for (let i = 0; i < position; i++) {
             if (snappedTiles.some(t => t.placeValue === wholePlaces[i])) {
-              offsetX += getExpandedCardWidthForPlaceValue(wholePlaces[i]) + EXPAND_GAP;
+              offsetX += getExpandedCardWidthForPlaceValue(wholePlaces[i]) * scale + EXPAND_GAP;
             }
           }
           return { x: centerX - offsetX, y: snapY };
@@ -706,9 +770,10 @@
       
       let totalWidth = 50;
       if (isExpanded) {
+        const EXPAND_GAP = 30;
         snappedTiles.forEach((t, i) => {
           totalWidth += getExpandedCardWidthForPlaceValue(t.placeValue);
-          if (i < snappedTiles.length - 1) totalWidth += 50; // Match EXPAND_GAP
+          if (i < snappedTiles.length - 1) totalWidth += EXPAND_GAP;
         });
       } else {
         const decimalPlaces = ['tenths', 'hundredths', 'thousandths'];
@@ -719,7 +784,9 @@
         });
         totalWidth = (wholeSlots + decimalSlots) * BLOCK_SIZE + 50;
       }
-      return totalWidth > paneWidth * 0.9 ? (paneWidth * 0.9) / totalWidth : 1;
+      // Allow scaling down to fit, with a minimum scale of 0.4
+      const scale = totalWidth > paneWidth * 0.9 ? (paneWidth * 0.9) / totalWidth : 1;
+      return Math.max(0.4, scale);
     }
     
     function getExpandedCardWidth(value) {
@@ -798,49 +865,53 @@
       // Plus signs for expanded view
       if (isExpanded && snappedTiles.length > 1) {
         const paneHeight = workPane.getBoundingClientRect().height;
-        const plusY = (paneHeight / 2) - (BLOCK_HEIGHT / 2);
+        const plusY = (paneHeight / 2) - (BLOCK_HEIGHT * scale / 2);
         const decimalPoint = document.querySelector('#snapLine .decimal-point');
         const pointRect = decimalPoint.getBoundingClientRect();
         const paneRect = workPane.getBoundingClientRect();
         const decimalCenterX = pointRect.left - paneRect.left + (pointRect.width / 2);
+        const EXPAND_GAP = 30;
         
         // Separate tiles into wholes and decimals
-        const wholeTiles = snappedTiles.filter(t => !isDecimalValue(t.value)).sort((a, b) => b.x - a.x); // right to left
-        const decimalTiles = snappedTiles.filter(t => isDecimalValue(t.value)).sort((a, b) => a.x - b.x); // left to right
+        const wholeTiles = snappedTiles.filter(t => !isDecimalValue(t.value)).sort((a, b) => b.x - a.x);
+        const decimalTiles = snappedTiles.filter(t => isDecimalValue(t.value)).sort((a, b) => a.x - b.x);
         
-        // Plus signs between whole number cards (right to left, so between each pair)
+        // Plus signs between whole number cards
         for (let i = 0; i < wholeTiles.length - 1; i++) {
           const leftTile = wholeTiles[i + 1];
-          const plusX = leftTile.x + getExpandedCardWidth(leftTile.value) + 10;
+          const plusX = leftTile.x + getExpandedCardWidth(leftTile.value) * scale + 5;
           
           const plus = document.createElement('div');
           plus.className = 'plus-sign';
           plus.textContent = '+';
           plus.style.left = plusX + 'px';
           plus.style.top = plusY + 'px';
+          plus.style.fontSize = (28 * scale) + 'px';
           workPane.appendChild(plus);
         }
         
-        // Plus sign over the decimal point (if both wholes and decimals exist)
+        // Plus sign over the decimal point
         if (wholeTiles.length > 0 && decimalTiles.length > 0) {
           const plus = document.createElement('div');
           plus.className = 'plus-sign';
           plus.textContent = '+';
-          plus.style.left = (decimalCenterX - 15) + 'px'; // Center the plus sign
+          plus.style.left = (decimalCenterX - 15) + 'px';
           plus.style.top = plusY + 'px';
+          plus.style.fontSize = (28 * scale) + 'px';
           workPane.appendChild(plus);
         }
         
-        // Plus signs between decimal cards (left to right)
+        // Plus signs between decimal cards
         for (let i = 0; i < decimalTiles.length - 1; i++) {
           const leftTile = decimalTiles[i];
-          const plusX = leftTile.x + getExpandedCardWidth(leftTile.value) + 10;
+          const plusX = leftTile.x + getExpandedCardWidth(leftTile.value) * scale + 5;
           
           const plus = document.createElement('div');
           plus.className = 'plus-sign';
           plus.textContent = '+';
           plus.style.left = plusX + 'px';
           plus.style.top = plusY + 'px';
+          plus.style.fontSize = (28 * scale) + 'px';
           workPane.appendChild(plus);
         }
       }
@@ -863,31 +934,26 @@
       const placeValue = getPlaceValueType(value);
       const isDecimal = isDecimalValue(value);
       
-      // Store drag data
       dragData = {
         value,
         placeValue,
-        source, // 'tray' or tile id
+        source,
         isDecimal
       };
       
-      // Calculate offset from cursor to card top-left
       dragOffset = {
         x: e.clientX - rect.left,
         y: e.clientY - rect.top
       };
       
-      // Create the ghost immediately
       dragGhost = createTileElement(value, isDecimal);
       dragGhost.classList.add('drag-ghost');
       document.body.appendChild(dragGhost);
       
-      // Position ghost at cursor
       updateGhostPosition(e.clientX, e.clientY);
       
       isDragging = true;
       
-      // Set up move and end listeners
       document.addEventListener('pointermove', onDragMove);
       document.addEventListener('pointerup', onDragEnd);
       document.addEventListener('pointercancel', onDragEnd);
@@ -914,13 +980,11 @@
       document.removeEventListener('pointerup', onDragEnd);
       document.removeEventListener('pointercancel', onDragEnd);
       
-      // Remove ghost
       if (dragGhost) {
         dragGhost.remove();
         dragGhost = null;
       }
       
-      // Determine drop location
       const workPane = document.getElementById('workPane');
       const paneRect = workPane.getBoundingClientRect();
       
@@ -941,9 +1005,8 @@
           finalY = snapPos.y;
           snappedToLine = true;
           
-          // Remove existing tile of same place value from snap line
           tiles = tiles.filter(t => {
-            if (t.id === dragData.source) return true; // Keep if we're moving this tile
+            if (t.id === dragData.source) return true;
             return !(t.placeValue === dragData.placeValue && t.snappedToLine);
           });
         } else {
@@ -953,7 +1016,6 @@
         }
         
         if (dragData.source === 'tray') {
-          // Add new tile
           tiles.push({
             id: Date.now() + Math.random(),
             value: dragData.value,
@@ -964,7 +1026,6 @@
             zIndex
           });
         } else {
-          // Move existing tile
           const existing = tiles.find(t => t.id === dragData.source);
           if (existing) {
             existing.x = finalX;
@@ -974,7 +1035,6 @@
           }
         }
       } else if (dragData.source !== 'tray') {
-        // Dropped outside workspace - remove tile
         tiles = tiles.filter(t => t.id !== dragData.source);
       }
       
@@ -984,8 +1044,135 @@
       renderWorkPane();
     }
 
+    // ====== NUMBER INPUT ======
+    const totalDisplay = document.getElementById('totalDisplay');
+    const numberInputWrapper = document.getElementById('numberInputWrapper');
+    const numberInput = document.getElementById('numberInput');
+    const inputConfirm = document.getElementById('inputConfirm');
+    const inputCancel = document.getElementById('inputCancel');
+    const speakBtn = document.getElementById('speakBtn');
+    
+    function showNumberInput() {
+      totalDisplay.classList.add('editing');
+      numberInputWrapper.classList.add('active');
+      numberInput.value = currentTotal > 0 ? currentTotal.toString() : '';
+      numberInput.focus();
+      numberInput.select();
+    }
+    
+    function hideNumberInput() {
+      totalDisplay.classList.remove('editing');
+      numberInputWrapper.classList.remove('active');
+    }
+    
+    function parseAndCreateTiles(inputValue) {
+      const num = parseFloat(inputValue);
+      if (isNaN(num) || num < 0 || num >= 10000000) {
+        showMessage('⚠️', 'Please enter a number between 0 and 9,999,999.999');
+        return;
+      }
+      
+      // Clear existing snapped tiles
+      tiles = tiles.filter(t => !t.snappedToLine);
+      
+      // Parse the number into place values
+      const str = num.toFixed(3);
+      const [wholePart, decimalPart] = str.split('.');
+      
+      const placeValueMap = [
+        { place: 'millions', divisor: 1000000 },
+        { place: 'hundredThousands', divisor: 100000 },
+        { place: 'tenThousands', divisor: 10000 },
+        { place: 'thousands', divisor: 1000 },
+        { place: 'hundreds', divisor: 100 },
+        { place: 'tens', divisor: 10 },
+        { place: 'ones', divisor: 1 }
+      ];
+      
+      // Whole number digits
+      let remaining = parseInt(wholePart) || 0;
+      placeValueMap.forEach(({ place, divisor }) => {
+        const digit = Math.floor(remaining / divisor);
+        if (digit > 0) {
+          const value = digit * divisor;
+          tiles.push({
+            id: Date.now() + Math.random(),
+            value: value,
+            placeValue: place,
+            x: 0,
+            y: 0,
+            snappedToLine: true,
+            zIndex: 1000 + getPlaceValueOrder(place)
+          });
+        }
+        remaining = remaining % divisor;
+      });
+      
+      // Decimal digits
+      if (decimalPart) {
+        const decimalPlaces = [
+          { place: 'tenths', index: 0, multiplier: 0.1 },
+          { place: 'hundredths', index: 1, multiplier: 0.01 },
+          { place: 'thousandths', index: 2, multiplier: 0.001 }
+        ];
+        
+        decimalPlaces.forEach(({ place, index, multiplier }) => {
+          const digit = parseInt(decimalPart[index]) || 0;
+          if (digit > 0) {
+            const value = parseFloat((digit * multiplier).toFixed(3));
+            tiles.push({
+              id: Date.now() + Math.random(),
+              value: value,
+              placeValue: place,
+              x: 0,
+              y: 0,
+              snappedToLine: true,
+              zIndex: 1000 + getPlaceValueOrder(place)
+            });
+          }
+        });
+      }
+      
+      // Auto-zoom
+      if (num >= 1000000) currentZoomIndex = 9;
+      else if (num >= 100000) currentZoomIndex = 8;
+      else if (num >= 10000) currentZoomIndex = 7;
+      else if (num >= 1000) currentZoomIndex = 6;
+      else if (num >= 100) currentZoomIndex = 5;
+      else if (num >= 10) currentZoomIndex = 4;
+      else if (num >= 1) currentZoomIndex = 3;
+      else if (num >= 0.1) currentZoomIndex = 2;
+      else if (num >= 0.01) currentZoomIndex = 1;
+      else currentZoomIndex = 0;
+      
+      hideNumberInput();
+      renderWorkPane();
+      snapNumberLine();
+    }
+    
+    // Click on total to edit (but not on speak button)
+    totalDisplay.addEventListener('click', (e) => {
+      if (e.target === speakBtn || speakBtn.contains(e.target)) return;
+      showNumberInput();
+    });
+    
+    inputConfirm.addEventListener('click', () => {
+      parseAndCreateTiles(numberInput.value);
+    });
+    
+    inputCancel.addEventListener('click', hideNumberInput);
+    
+    numberInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        parseAndCreateTiles(numberInput.value);
+      } else if (e.key === 'Escape') {
+        hideNumberInput();
+      }
+    });
+
     // ====== EVENT LISTENERS ======
-    document.getElementById('speakBtn').addEventListener('click', () => {
+    speakBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
       const utterance = new SpeechSynthesisUtterance(currentTotal.toString());
       utterance.rate = 0.9;
       window.speechSynthesis.speak(utterance);
@@ -1012,7 +1199,7 @@
     function getNextPlaceValue(placeValue, direction) {
       const allPlaces = ['thousandths', 'hundredths', 'tenths', 'ones', 'tens', 'hundreds', 'thousands', 'tenThousands', 'hundredThousands', 'millions'];
       const idx = allPlaces.indexOf(placeValue);
-      const newIdx = idx + direction; // +1 for x10, -1 for ÷10
+      const newIdx = idx + direction;
       if (newIdx < 0 || newIdx >= allPlaces.length) return null;
       return allPlaces[newIdx];
     }
@@ -1034,7 +1221,6 @@
     }
     
     function getDigitFromValue(value) {
-      // Extract the significant digit (1-9) from a place value card
       if (value < 1) {
         const str = value.toFixed(3);
         for (let c of str) {
@@ -1048,7 +1234,6 @@
       const snappedTiles = tiles.filter(t => t.snappedToLine);
       if (snappedTiles.length === 0) return;
       
-      // Check if any tile would go beyond millions
       for (let tile of snappedTiles) {
         const newPlace = getNextPlaceValue(tile.placeValue, 1);
         if (!newPlace) {
@@ -1062,7 +1247,6 @@
         }
       }
       
-      // Check for collisions (two tiles ending up in same place value)
       const newPlaceValues = snappedTiles.map(t => getNextPlaceValue(t.placeValue, 1));
       const uniquePlaces = new Set(newPlaceValues);
       if (uniquePlaces.size !== newPlaceValues.length) {
@@ -1070,13 +1254,11 @@
         return;
       }
       
-      // Collapse if expanded
       if (isExpanded) {
         isExpanded = false;
         document.getElementById('expandBtn').innerHTML = '<span class="btn-icon">💥</span> Expand';
       }
       
-      // Animate the transformation
       animateTransform(1);
     }
     
@@ -1084,7 +1266,6 @@
       const snappedTiles = tiles.filter(t => t.snappedToLine);
       if (snappedTiles.length === 0) return;
       
-      // Check if any tile would go beyond thousandths
       for (let tile of snappedTiles) {
         const newPlace = getNextPlaceValue(tile.placeValue, -1);
         if (!newPlace) {
@@ -1094,7 +1275,6 @@
         }
       }
       
-      // Check for collisions
       const newPlaceValues = snappedTiles.map(t => getNextPlaceValue(t.placeValue, -1));
       const uniquePlaces = new Set(newPlaceValues);
       if (uniquePlaces.size !== newPlaceValues.length) {
@@ -1102,13 +1282,11 @@
         return;
       }
       
-      // Collapse if expanded
       if (isExpanded) {
         isExpanded = false;
         document.getElementById('expandBtn').innerHTML = '<span class="btn-icon">💥</span> Expand';
       }
       
-      // Animate the transformation
       animateTransform(-1);
     }
     
@@ -1117,7 +1295,6 @@
       const workPane = document.getElementById('workPane');
       const tileElements = [...workPane.querySelectorAll('.work-pane-tile')];
       
-      // Store old positions and prepare animation data
       const animationData = snappedTiles.map((tile, idx) => {
         const digit = getDigitFromValue(tile.value);
         const newPlaceValue = getNextPlaceValue(tile.placeValue, direction);
@@ -1125,7 +1302,6 @@
         const wasDecimal = isDecimalValue(tile.value);
         const willBeDecimal = isDecimalValue(newValue);
         
-        // Find the DOM element for this tile (match by current position)
         const el = tileElements.find(e => {
           const elLeft = parseFloat(e.style.left);
           return Math.abs(elLeft - tile.x) < 5;
@@ -1143,31 +1319,24 @@
         };
       });
       
-      // First, update the tile data
       animationData.forEach(data => {
         data.tile.placeValue = data.newPlaceValue;
         data.tile.value = data.newValue;
         data.tile.zIndex = 1000 + getPlaceValueOrder(data.newPlaceValue);
       });
       
-      // Calculate new positions
       snappedTiles.forEach(tile => {
         const newPos = getSnapLinePosition(tile.placeValue);
         tile.x = newPos.x;
         tile.y = newPos.y;
       });
       
-      // Apply CSS transitions and animate to new positions
       animationData.forEach(data => {
         if (!data.el) return;
         
-        // Add transition class
         data.el.style.transition = 'left 0.5s ease-in-out, background 0.5s ease-in-out, border-color 0.5s ease-in-out';
-        
-        // Animate position
         data.el.style.left = data.tile.x + 'px';
         
-        // Animate color change if crossing decimal point
         if (data.colorChange) {
           if (data.willBeDecimal) {
             data.el.style.background = 'var(--decimal-bg)';
@@ -1187,16 +1356,13 @@
         }
       });
       
-      // Update the total display immediately for feedback
       const newTotal = snappedTiles.reduce((sum, t) => sum + t.value, 0);
       currentTotal = parseFloat(newTotal.toFixed(4));
       document.getElementById('sumText').textContent = new Intl.NumberFormat('en-US').format(currentTotal);
       
-      // After animation completes, do a full re-render to update digit display
       setTimeout(() => {
         renderWorkPane();
         
-        // Auto-zoom to appropriate level
         if (currentTotal >= 1000000) currentZoomIndex = 9;
         else if (currentTotal >= 100000) currentZoomIndex = 8;
         else if (currentTotal >= 10000) currentZoomIndex = 7;
