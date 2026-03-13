@@ -3,2504 +3,715 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-  <title>Place Value: Resource Edition</title>
+  <title>Place Value Slider</title>
   <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;700;900&display=swap" rel="stylesheet"/>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
-    :root{
-      --bg:#f3f4f6; 
-      --ink:#111827;
-      --tray:#1f2937; 
-      --accent:#3b82f6;
-      --block-size: 40px; 
-      --block-height: 60px;
-      --whole-bg: #e8eef4;
-      --whole-text: #334155;
-      --whole-border: #cbd5e1;
-      --decimal-bg: #fef3ee;
-      --decimal-text: #9a3412;
-      --decimal-border: #fed7aa;
+    :root {
+      --bg: #f5f5f4;
+      --ink: #18181b;
+      --muted: #a1a1aa;
+      --accent: #3b82f6;
+      --green: #16a34a;
+      --green-bg: #f0fdf4;
+      --green-border: #86efac;
+      --red: #dc2626;
+      --red-bg: #fef2f2;
+      --red-border: #fca5a5;
+      --cell-border: #d4d4d8;
+      --ghost-color: #d4d4d8;
     }
-
-    body{
-      font-family:'Lexend',sans-serif;
-      background:var(--bg);
-      color:var(--ink);
-      height:100vh;
-      overflow:hidden;
-      touch-action:none;
-      user-select: none;
-      overscroll-behavior: none;
-    }
-
-    #app{position:relative;height:calc(100% - 50px);width:100%; display:flex; flex-direction:column;}
-
-    #dashboard {
-      height: 50px;
-      background: white;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 15px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-      z-index: 50;
-    }
-
-    .dash-group { display: flex; align-items: center; gap: 12px; }
-
-    #totalDisplay {
-      font-size: 20px;
-      font-weight: 900;
-      color: #374151;
-      background: #f3f4f6;
-      padding: 4px 16px;
-      border-radius: 25px;
-      min-width: 80px;
-      text-align: center;
-      border: 2px solid #e5e7eb;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      cursor: pointer;
-      transition: border-color 0.2s;
-    }
-    #totalDisplay:hover {
-      border-color: var(--accent);
-    }
-    #totalDisplay.editing {
-      display: none;
-    }
-    
-    #numberInputWrapper {
-      display: none;
-      align-items: center;
-      gap: 8px;
-    }
-    #numberInputWrapper.active {
-      display: flex;
-    }
-    
-    #numberInput {
-      font-size: 20px;
-      font-weight: 900;
-      color: #374151;
-      background: white;
-      padding: 4px 12px;
-      border-radius: 25px;
-      min-width: 80px;
-      text-align: center;
-      border: 2px solid var(--accent);
-      font-family: inherit;
-      outline: none;
-      width: 140px;
-    }
-    
-    #inputConfirm {
-      background: var(--accent);
-      color: white;
-      border: none;
-      border-radius: 50%;
-      width: 28px;
-      height: 28px;
-      font-size: 16px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    #inputCancel {
-      background: #6b7280;
-      color: white;
-      border: none;
-      border-radius: 50%;
-      width: 28px;
-      height: 28px;
-      font-size: 14px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .btn {
-      border: none;
-      background: #374151;
-      color: white;
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-weight: 700;
-      font-family: inherit;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      transition: transform 0.1s, background 0.2s;
-      font-size: 13px;
-    }
-    .btn:hover { background: #1f2937; transform: translateY(-1px); }
-    .btn:active { transform: translateY(1px); }
-    .btn-icon { font-size: 18px; }
-    .btn-primary { background: var(--accent); }
-    .btn-primary:hover { background: #2563eb; }
-    .btn-danger { background: #ef4444; }
-    .btn-danger:hover { background: #dc2626; }
-
-    #numberLinePanel {
-      background: white;
-      border-bottom: 1px solid #e5e7eb;
-      padding: 8px 20px 5px;
-      z-index: 45;
-    }
-    
-    .zoom-bar-container { margin-bottom: 8px; }
-    
-    .zoom-bar {
-      position: relative;
-      height: 8px;
-      background: linear-gradient(to right, #3498db, #9b59b6, #e74c3c);
-      border-radius: 4px;
-      margin-bottom: 5px;
-      cursor: pointer;
-    }
-    
-    .zoom-indicator {
-      position: absolute;
-      top: -4px;
-      width: 4px;
-      height: 16px;
-      background: #2c3e50;
-      border-radius: 2px;
-      transition: left 0.3s ease;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-      pointer-events: none;
-    }
-    
-    .zoom-labels {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.65rem;
-      color: #9ca3af;
-    }
-    
-    .zoom-label-btn {
-      cursor: pointer;
-      padding: 2px 4px;
-      border-radius: 4px;
-      transition: all 0.15s;
-      font-weight: 600;
-    }
-    .zoom-label-btn:hover {
-      background: #e5e7eb;
-      color: var(--ink);
-    }
-    .zoom-label-btn:active {
-      transform: scale(0.95);
-    }
-    .zoom-label-btn.active-zoom {
-      background: #dbeafe;
-      color: var(--accent);
-      font-weight: 900;
-    }
-    
-    .number-line-container {
-      position: relative;
-      height: 65px; 
-      cursor: ns-resize;
-      overflow: visible; 
-      margin: 5px 50px 0 50px;
-    }
-    
-    .number-line {
-      width: 100%;
-      height: 40px;
-      position: relative;
-      background: linear-gradient(to bottom, transparent 46%, #2c3e50 46%, #2c3e50 54%, transparent 54%);
-    }
-    
-    .tick {
-      position: absolute;
-      top: 25%;
-      width: 2px;
-      height: 50%;
-      background: #d1d5db;
-      transform: translateX(-50%);
-    }
-    
-    .tick.major {
-      top: 15%;
-      width: 2px;
-      height: 70%;
-      background: #6b7280;
-    }
-    
-    .tick-label {
-      position: absolute;
-      top: 42px; 
-      transform: translateX(-50%);
-      font-weight: 600;
-      font-size: 0.7rem;
-      color: #6b7280;
-      white-space: nowrap;
-    }
-    
-    .value-dot {
-      position: absolute;
-      width: 16px;
-      height: 16px;
-      background: #e74c3c;
-      border: 2px solid white;
-      border-radius: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      z-index: 10;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-    }
-    
-    .dot-label {
-      position: absolute;
-      top: -24px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #e74c3c;
-      color: white;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-weight: 700;
-      font-size: 0.7rem;
-      white-space: nowrap;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    }
-    
-    .dot-label::after {
-      content: '';
-      position: absolute;
-      bottom: -4px;
-      left: 50%;
-      transform: translateX(-50%);
-      border-left: 4px solid transparent;
-      border-right: 4px solid transparent;
-      border-top: 4px solid #e74c3c;
-    }
-    
-    .zoom-hint {
-      display: none;
-    }
-
-    #workPane{
-      flex: 1;
-      position:relative;
-      background:radial-gradient(circle at center, #ffffff 0%, #f3f4f6 100%);
-      overflow:hidden;
-    }
-    
-    #snapLine{
-      position:absolute;
-      top:50%;
-      left:0; right:0;
-      height:2px;
-      background:rgba(0,0,0,0.04);
-      pointer-events:none;
-      z-index:5;
-    }
-    #snapLine .decimal-point {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      width: 14px;
-      height: 14px;
-      background: #475569;
-      border-radius: 50%;
-      margin-top: 35px;
-    }
-
-    #bottomDock{
-      height: 22vh;
-      min-height: 140px;
-      background: var(--tray);
-      display: flex; flex-direction: column;
-      z-index: 60;
-      box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
-    }
-
-    #drawerTabs{
-      display:flex;
-      background:#374151;
-      overflow-x:auto;
-      padding: 0 10px;
-      scrollbar-width: none;
-    }
-    #drawerTabs::-webkit-scrollbar { display: none; }
-
-    .drawer-tab{
-      padding:8px 14px;
-      background:transparent; color: #9ca3af;
-      border:none; cursor:pointer;
-      font-weight:700; font-size:11px;
-      white-space:nowrap; transition:all .2s;
-      border-bottom: 3px solid transparent;
-    }
-    .drawer-tab.active{
-      color: white; background: rgba(255,255,255,0.1);
-      border-bottom: 3px solid var(--accent);
-    }
-
-    #baseTiles{
-      flex:1;
-      padding:10px 15px;
-      overflow-x: auto; overflow-y: hidden;
-      display:flex; align-items:center;
-    }
-    .base-row{ display:flex; gap:10px; margin: 0 auto; }
-
-    .tile{
-      height:var(--block-height);
-      display:flex;
-      cursor:grab;
-      border-radius:12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-      background: var(--whole-bg);
-      border: 2px solid var(--whole-border);
-      overflow:hidden;
-      transition: transform 0.1s, box-shadow 0.1s;
-      touch-action: none; 
-    }
-    .tile:active{ cursor:grabbing; }
-    .work-pane-tile{ position:absolute; transition: left 0.2s, top 0.2s; }
-
-    .digit-block{
-      width:var(--block-size); height:var(--block-height);
-      display:flex; align-items:center; justify-content:center;
-      font-weight:700; font-size:28px; line-height:1;
-      color: var(--whole-text);
-      flex-shrink: 0; 
-    }
-    .comma-block{ width:14px; align-items:flex-end; padding-bottom:10px; flex-shrink: 0; }
-    .decimal-block{ width:14px; font-size:28px; font-weight:700; align-items:flex-end; padding-bottom:8px; flex-shrink: 0; }
-
-    .tile.decimal-tile {
-      background: var(--decimal-bg);
-      border-color: var(--decimal-border);
-    }
-    .tile.decimal-tile .digit-block {
-      color: var(--decimal-text);
-    }
-    
-    .drag-ghost {
-      position: fixed;
-      z-index: 10000;
-      pointer-events: none;
-      opacity: 0.7;
-      box-shadow: 0 15px 40px rgba(0,0,0,0.3);
-      cursor: grabbing;
-      transform-origin: center center;
-    }
-    
-    .plus-sign {
-      position: absolute;
-      font-size: 28px;
-      font-weight: 700;
-      color: #9ca3af;
-      pointer-events: none;
-      z-index: 200;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 30px;
-      height: var(--block-height);
-    }
-    
-    .tile.sliding {
-      transition: left 0.5s ease-in-out, background 0.5s ease-in-out, border-color 0.5s ease-in-out;
-    }
-    .tile.sliding .digit-block {
-      transition: color 0.5s ease-in-out;
-    }
-    
-    #messagePopup {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: #1f2937;
-      color: white;
-      padding: 20px 30px;
-      border-radius: 16px;
-      font-size: 18px;
-      font-weight: 700;
-      text-align: center;
-      z-index: 10000;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.3s;
-      max-width: 400px;
-    }
-    #messagePopup.show {
-      opacity: 1;
-    }
-    #messagePopup .emoji {
-      font-size: 36px;
-      display: block;
-      margin-bottom: 10px;
-    }
-
-    /* ============================================ */
-    /* QUIZ MODE STYLES */
-    /* ============================================ */
-    #quizOverlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 9999;
+    body {
+      font-family: 'Lexend', sans-serif;
       background: var(--bg);
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
-      padding: 20px;
-      overflow-y: auto;
-    }
-    #quizOverlay.active {
-      display: flex;
-    }
-
-    .quiz-header {
-      width: 100%;
-      max-width: 600px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 16px;
-    }
-    .quiz-title {
-      font-size: 22px;
-      font-weight: 900;
       color: var(--ink);
-      letter-spacing: -0.5px;
-    }
-    .quiz-close {
-      background: #e5e7eb;
-      border: 1px solid #d1d5db;
-      color: #6b7280;
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      font-size: 18px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.2s;
-    }
-    .quiz-close:hover {
-      background: #d1d5db;
-      color: var(--ink);
-    }
-
-    .quiz-progress-bar {
-      width: 100%;
-      max-width: 600px;
-      height: 10px;
-      background: #e5e7eb;
-      border-radius: 5px;
-      margin-bottom: 12px;
+      height: 100vh; height: 100dvh;
       overflow: hidden;
-    }
-    .quiz-progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, var(--accent), #8b5cf6);
-      border-radius: 5px;
-      transition: width 0.4s ease;
-      width: 0%;
-    }
-    
-    .quiz-score {
-      width: 100%;
-      max-width: 600px;
+      user-select: none;
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 24px;
-      font-size: 14px;
-      color: #6b7280;
-      font-weight: 700;
-    }
-    .quiz-score-right {
-      color: #059669;
-    }
-    
-    .quiz-card {
-      width: 100%;
-      max-width: 600px;
-      background: white;
-      border: 2px solid #e5e7eb;
-      border-radius: 20px;
-      padding: 28px 24px;
-      text-align: center;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+      flex-direction: column;
     }
 
-    .quiz-prompt {
-      font-size: 16px;
-      color: #6b7280;
-      margin-bottom: 20px;
-      font-weight: 700;
+    /* ── TOP BAR ── */
+    #topBar {
+      padding: 10px 12px;
+      display: flex; align-items: center; justify-content: center;
+      gap: 6px; flex-wrap: wrap; flex-shrink: 0;
+    }
+    .op-btn {
+      background: white; border: 2px solid #d1d5db; color: var(--ink);
+      padding: 10px 18px; border-radius: 10px; font-size: 16px;
+      font-weight: 900; font-family: inherit; cursor: pointer;
+      transition: all 0.12s;
+    }
+    .op-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+    .op-btn:active { transform: scale(0.96); }
+    .op-btn.multiply { border-color: var(--green-border); color: var(--green); background: var(--green-bg); }
+    .op-btn.divide { border-color: var(--red-border); color: var(--red); background: var(--red-bg); }
+    .bar-sep { width: 2px; height: 28px; background: #e5e7eb; margin: 0 4px; }
+    .toggle-group {
+      display: flex; background: white; border: 2px solid #e5e7eb;
+      border-radius: 10px; padding: 2px; gap: 2px;
+    }
+    .toggle-btn {
+      background: transparent; color: var(--muted); border: none;
+      padding: 7px 12px; border-radius: 8px; font-size: 11px;
+      font-weight: 700; font-family: inherit; cursor: pointer;
+      transition: all 0.12s; white-space: nowrap;
+    }
+    .toggle-btn.active { background: var(--accent); color: white; }
+    .small-btn {
+      background: white; border: 2px solid #e5e7eb; color: var(--muted);
+      padding: 7px 12px; border-radius: 10px; font-size: 11px;
+      font-weight: 700; font-family: inherit; cursor: pointer;
+    }
+    .small-btn.active { background: #dbeafe; border-color: var(--accent); color: var(--accent); }
+
+    /* ── GRID AREA ── */
+    #gridArea {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      cursor: text; overflow: hidden; position: relative;
     }
 
-    .quiz-number-display {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0;
-      margin-bottom: 28px;
-      flex-wrap: wrap;
-    }
-    .quiz-digit {
-      font-size: 52px;
-      font-weight: 900;
-      color: var(--ink);
-      width: 48px;
-      height: 72px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 10px;
-      transition: all 0.3s;
+    #gridContainer {
       position: relative;
     }
-    .quiz-digit.separator {
-      width: 24px;
-      color: #9ca3af;
-      font-size: 48px;
-    }
-    .quiz-digit.highlighted {
-      background: var(--accent);
-      color: white;
-      box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
-      animation: quiz-pulse 1.5s ease-in-out infinite;
-    }
-    @keyframes quiz-pulse {
-      0%, 100% { box-shadow: 0 0 15px rgba(59, 130, 246, 0.2); }
-      50% { box-shadow: 0 0 30px rgba(59, 130, 246, 0.5); }
-    }
 
-    .quiz-digit-label {
+    /* Background cells (just the dashed boxes) */
+    .bg-cell {
       position: absolute;
-      bottom: -22px;
-      font-size: 9px;
+      border: 2px dashed var(--cell-border);
+      border-radius: 8px;
+    }
+    .bg-label {
+      position: absolute;
       font-weight: 700;
-      color: #9ca3af;
+      color: var(--muted);
+      text-align: center;
       white-space: nowrap;
     }
-    .quiz-digit.highlighted .quiz-digit-label {
-      color: var(--accent);
-    }
 
-    .quiz-choices {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      max-width: 440px;
-      margin: 0 auto;
-      justify-content: center;
-    }
-    .quiz-choice {
-      background: var(--whole-bg);
-      border: 2px solid var(--whole-border);
-      color: var(--whole-text);
-      padding: 14px 20px;
-      border-radius: 12px;
-      font-size: 18px;
-      font-weight: 700;
-      font-family: inherit;
-      cursor: pointer;
-      transition: all 0.2s;
-      min-width: 90px;
-      text-align: center;
-    }
-    .quiz-choice:hover {
-      background: #dbe4ed;
-      border-color: #94a3b8;
-      transform: translateY(-2px);
-    }
-    .quiz-choice:active {
-      transform: translateY(1px);
-    }
-    .quiz-choice.correct {
-      background: #d1fae5;
-      border-color: #059669;
-      color: #059669;
-      animation: quiz-correct 0.4s ease;
-    }
-    .quiz-choice.wrong {
-      background: #fee2e2;
-      border-color: #ef4444;
-      color: #ef4444;
-      animation: quiz-shake 0.4s ease;
-    }
-    @keyframes quiz-correct {
-      0% { transform: scale(1); }
-      50% { transform: scale(1.05); }
-      100% { transform: scale(1); }
-    }
-    @keyframes quiz-shake {
-      0%, 100% { transform: translateX(0); }
-      25% { transform: translateX(-6px); }
-      75% { transform: translateX(6px); }
-    }
-
-    .quiz-feedback {
-      margin-top: 20px;
-      font-size: 18px;
-      font-weight: 900;
-      min-height: 30px;
-      transition: opacity 0.3s;
-    }
-    .quiz-feedback.correct-fb { color: #059669; }
-    .quiz-feedback.wrong-fb { color: #ef4444; }
-
-    .quiz-expand-btn {
-      background: var(--whole-bg);
-      border: 2px solid var(--whole-border);
-      color: #6b7280;
-      padding: 8px 18px;
-      border-radius: 10px;
-      font-size: 14px;
-      font-weight: 700;
-      font-family: inherit;
-      cursor: pointer;
-      transition: all 0.2s;
-      margin-bottom: 12px;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .quiz-expand-btn:hover {
-      background: #dbe4ed;
-      border-color: #94a3b8;
-    }
-    
-    .quiz-expanded-form {
-      margin-top: 14px;
-      padding: 14px 20px;
-      background: #f9fafb;
-      border: 2px solid #e5e7eb;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      flex-wrap: wrap;
-      animation: quiz-expand-in 0.4s ease;
-    }
-    @keyframes quiz-expand-in {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .quiz-expanded-part {
-      font-size: 28px;
-      font-weight: 900;
-      color: var(--whole-text);
-      padding: 4px 10px;
-      border-radius: 8px;
-    }
-    .quiz-expanded-part.is-answer {
-      background: #dbeafe;
-      color: var(--accent);
-      border: 2px solid #93c5fd;
-    }
-    .quiz-expanded-plus {
-      font-size: 22px;
-      font-weight: 700;
-      color: #9ca3af;
-    }
-
-    .quiz-next-btn {
-      margin-top: 16px;
-      background: var(--accent);
-      color: white;
-      border: none;
-      padding: 12px 32px;
-      border-radius: 12px;
-      font-size: 16px;
-      font-weight: 700;
-      font-family: inherit;
-      cursor: pointer;
-      transition: all 0.2s;
-      animation: quiz-expand-in 0.3s ease;
-    }
-    .quiz-next-btn:hover {
-      background: #2563eb;
-      transform: translateY(-2px);
-    }
-
-    .quiz-digit.tappable {
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .quiz-digit.tappable:hover {
-      background: #dbeafe;
-      transform: scale(1.08);
-    }
-    .quiz-digit.tappable:active {
-      transform: scale(0.97);
-    }
-    
-    .quiz-tap-prompt {
-      font-size: 15px;
-      color: #6b7280;
-      font-weight: 700;
-      margin-bottom: 16px;
-    }
-    
-    .quiz-new-number-row {
-      margin-top: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-    .quiz-new-number-input {
-      font-family: inherit;
-      font-size: 16px;
-      font-weight: 700;
-      padding: 8px 14px;
-      border-radius: 10px;
-      border: 2px solid #d1d5db;
-      width: 140px;
-      color: var(--ink);
-      background: white;
-      outline: none;
-      text-align: center;
-      transition: border-color 0.2s;
-    }
-    .quiz-new-number-input:focus {
-      border-color: var(--accent);
-    }
-    .quiz-new-number-btn {
-      background: var(--accent);
-      color: white;
-      border: none;
-      padding: 8px 18px;
-      border-radius: 10px;
-      font-size: 14px;
-      font-weight: 700;
-      font-family: inherit;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .quiz-new-number-btn:hover {
-      background: #2563eb;
-    }
-
-    /* Results screen */
-    .quiz-results {
-      text-align: center;
-      padding: 20px;
-    }
-    .quiz-results-emoji {
-      font-size: 64px;
-      margin-bottom: 16px;
-    }
-    .quiz-results-score {
-      font-size: 48px;
+    /* The decimal dot - absolutely positioned */
+    #decimalDot {
+      position: absolute;
       font-weight: 900;
       color: var(--ink);
-      margin-bottom: 8px;
-    }
-    .quiz-results-label {
-      font-size: 16px;
-      color: #6b7280;
-      margin-bottom: 24px;
-      font-weight: 700;
-    }
-    .quiz-results-message {
-      font-size: 18px;
-      color: var(--whole-text);
-      margin-bottom: 28px;
-      line-height: 1.5;
-    }
-    .quiz-results-btns {
-      display: flex;
-      gap: 12px;
-      justify-content: center;
-      flex-wrap: wrap;
-    }
-    .quiz-results-btn {
-      padding: 12px 28px;
-      border-radius: 12px;
-      font-size: 16px;
-      font-weight: 700;
-      font-family: inherit;
-      cursor: pointer;
-      border: none;
-      transition: all 0.2s;
-    }
-    .quiz-results-btn:hover { transform: translateY(-2px); }
-    .quiz-results-btn.primary {
-      background: var(--accent);
-      color: white;
-    }
-    .quiz-results-btn.secondary {
-      background: var(--whole-bg);
-      color: var(--whole-text);
-      border: 2px solid var(--whole-border);
+      text-align: center;
+      z-index: 5;
+      line-height: 1;
     }
 
-    .quiz-settings {
-      width: 100%;
-      max-width: 600px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 16px;
-      flex-wrap: wrap;
-    }
-    .quiz-settings-label {
-      font-size: 13px;
-      color: #6b7280;
-      font-weight: 700;
-      margin-right: 4px;
-    }
-    .quiz-range-btn {
-      background: white;
-      border: 2px solid #d1d5db;
-      color: #6b7280;
-      padding: 6px 14px;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 700;
-      font-family: inherit;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .quiz-range-btn:hover {
-      background: #f9fafb;
-      border-color: #9ca3af;
-    }
-    .quiz-range-btn.active {
-      background: #dbeafe;
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-    #quizDataOverlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 10001;
-      background: rgba(0,0,0,0.4);
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-    #quizDataOverlay.active {
-      display: flex;
-    }
-    .quiz-data-card {
-      background: white;
-      border-radius: 16px;
-      padding: 24px;
-      max-width: 500px;
-      width: 100%;
-      max-height: 80vh;
-      overflow-y: auto;
+    /* Floating digit elements */
+    .floating-digit {
+      position: absolute;
+      font-weight: 900;
       color: var(--ink);
-      box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+      text-align: center;
+      line-height: 1;
+      z-index: 2;
+      /* THE KEY: smooth transition on left position */
+      transition: left 0.5s cubic-bezier(0.4, 0.0, 0.2, 1);
     }
-    .quiz-data-card h3 {
-      font-size: 18px;
-      margin-bottom: 16px;
-      color: var(--ink);
+    .floating-digit.ghost {
+      color: var(--ghost-color);
     }
-    .quiz-data-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
+    .floating-digit.invisible {
+      color: transparent;
     }
-    .quiz-data-table th,
-    .quiz-data-table td {
-      padding: 8px 10px;
-      text-align: left;
-      border-bottom: 1px solid #e5e7eb;
+
+    /* ── EDIT OVERLAY ── */
+    #editOverlay {
+      display: none; position: fixed; inset: 0; z-index: 100;
+      background: rgba(0,0,0,0.2); align-items: center; justify-content: center;
     }
-    .quiz-data-table th {
-      color: #6b7280;
-      font-weight: 700;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+    #editOverlay.active { display: flex; }
+    .edit-card {
+      background: white; border-radius: 16px; padding: 28px;
+      text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.12);
     }
-    .quiz-data-table .correct-row { color: #059669; }
-    .quiz-data-table .wrong-row { color: #ef4444; }
-    .quiz-data-close {
-      margin-top: 16px;
-      width: 100%;
-      padding: 10px;
-      background: var(--whole-bg);
-      color: var(--whole-text);
-      border: 2px solid var(--whole-border);
-      border-radius: 8px;
-      font-weight: 700;
-      font-family: inherit;
-      cursor: pointer;
-      font-size: 14px;
+    .edit-card h3 { font-size: 14px; color: var(--muted); margin-bottom: 14px; font-weight: 700; }
+    .edit-card input {
+      font-size: 28px; font-weight: 900; color: var(--ink);
+      background: var(--bg); border: 2px solid var(--accent);
+      border-radius: 12px; padding: 10px 18px; width: 240px;
+      text-align: center; font-family: inherit; outline: none;
     }
-    .quiz-data-copy {
-      margin-top: 8px;
-      width: 100%;
-      padding: 10px;
-      background: var(--accent);
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-weight: 700;
-      font-family: inherit;
-      cursor: pointer;
-      font-size: 14px;
+    .edit-btns { margin-top: 14px; display: flex; gap: 8px; justify-content: center; }
+    .edit-btn {
+      padding: 10px 24px; border-radius: 10px; font-weight: 700;
+      font-family: inherit; cursor: pointer; border: none; font-size: 15px;
     }
+    .edit-btn.primary { background: var(--accent); color: white; }
+    .edit-btn.secondary { background: #f1f5f9; color: var(--ink); }
+
+    /* ── NUMBER LINE ── */
+    #nlSection {
+      flex-shrink: 0; padding: 8px 20px 0;
+      background: white; border-top: 1px solid #e5e7eb;
+    }
+    .nl-zoom-row { margin-bottom: 4px; }
+    .nl-zoom-bar {
+      position: relative; height: 6px;
+      background: linear-gradient(to right, #93c5fd, #a78bfa, #fca5a5);
+      border-radius: 3px; cursor: pointer; margin-bottom: 4px;
+    }
+    .nl-zoom-ind {
+      position: absolute; top: -3px; width: 4px; height: 12px;
+      background: var(--ink); border-radius: 2px;
+      transition: left 0.3s; pointer-events: none;
+    }
+    .nl-zoom-labels { display: flex; justify-content: space-between; font-size: 0.55rem; color: var(--muted); }
+    .nl-zoom-btn { cursor: pointer; padding: 1px 4px; border-radius: 3px; font-weight: 600; }
+    .nl-zoom-btn:hover { background: #e5e7eb; color: var(--ink); }
+    .nl-zoom-btn.active { background: #dbeafe; color: var(--accent); font-weight: 900; }
+    .nl-area { position: relative; height: 75px; margin: 4px 30px 10px; }
+    .nl-line { width: 100%; height: 100%; position: relative; }
+    .nl-axis { position: absolute; top: 45%; left: 0; right: 0; height: 2px; background: #d1d5db; }
+    .nl-tick { position: absolute; top: 25%; width: 1px; height: 40%; background: #d1d5db; transform: translateX(-50%); }
+    .nl-tick.major { top: 15%; height: 60%; background: #9ca3af; width: 2px; }
+    .nl-tick-label { position: absolute; top: 72%; transform: translateX(-50%); font-weight: 700; font-size: 0.65rem; color: #9ca3af; white-space: nowrap; }
+    .nl-dot { position: absolute; width: 14px; height: 14px; background: var(--red); border: 2px solid white; border-radius: 50%; top: 45%; transform: translate(-50%, -50%); z-index: 10; box-shadow: 0 0 8px rgba(220,38,38,0.3); }
+    .nl-dot-label { position: absolute; top: -22px; left: 50%; transform: translateX(-50%); background: var(--red); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 900; font-size: 0.65rem; white-space: nowrap; }
+    .nl-dot-label::after { content:''; position:absolute; bottom:-3px; left:50%; transform:translateX(-50%); border-left:3px solid transparent; border-right:3px solid transparent; border-top:3px solid var(--red); }
   </style>
 </head>
 <body>
 
-  <div id="dashboard">
-    <div class="dash-group">
-      <button class="btn btn-danger" id="resetBtn"><span class="btn-icon">🗑</span> Clear</button>
-      <div id="totalDisplay" title="Click to enter a number">
-        <span id="sumText">0</span>
-        <button class="btn btn-primary" id="speakBtn" style="padding:4px 8px; border-radius:20px; min-width:auto;" title="Read Aloud">🔊</button>
-      </div>
-      <div id="numberInputWrapper">
-        <input type="text" id="numberInput" placeholder="Enter number..." />
-        <button id="inputConfirm" title="Confirm">✓</button>
-        <button id="inputCancel" title="Cancel">✕</button>
-      </div>
+  <div id="topBar">
+    <button class="op-btn divide" data-places="-3">÷1000</button>
+    <button class="op-btn divide" data-places="-2">÷100</button>
+    <button class="op-btn divide" data-places="-1">÷10</button>
+    <div class="bar-sep"></div>
+    <button class="op-btn multiply" data-places="1">×10</button>
+    <button class="op-btn multiply" data-places="2">×100</button>
+    <button class="op-btn multiply" data-places="3">×1000</button>
+    <div class="bar-sep"></div>
+    <div class="toggle-group">
+      <button class="toggle-btn active" id="modeDigits">Digits Slide</button>
+      <button class="toggle-btn" id="modeDecimal">Decimal Slides</button>
     </div>
-    <div class="dash-group">
-      <button class="btn" id="divideBtn"><span class="btn-icon">➗</span> ÷10</button>
-      <button class="btn" id="multiplyBtn"><span class="btn-icon">✖️</span> ×10</button>
-      <button class="btn" id="expandBtn"><span class="btn-icon">💥</span> Expand</button>
-      <button class="btn btn-primary" id="quizBtn"><span class="btn-icon">🎯</span> Quiz</button>
+    <button class="small-btn" id="zerosBtn">Show Zeros</button>
+  </div>
+
+  <div id="gridArea">
+    <div id="gridContainer"></div>
+  </div>
+
+  <div id="editOverlay">
+    <div class="edit-card">
+      <h3>Enter a number</h3>
+      <input type="text" id="editInput" placeholder="e.g. 42.5" />
+      <div class="edit-btns">
+        <button class="edit-btn secondary" id="editCancel">Cancel</button>
+        <button class="edit-btn primary" id="editConfirm">Go</button>
+      </div>
     </div>
   </div>
 
-  <div id="messagePopup"><span class="emoji"></span><span class="text"></span></div>
-
-  <!-- QUIZ OVERLAY -->
-  <div id="quizOverlay">
-    <div class="quiz-header">
-      <div class="quiz-title">Place Value Quiz</div>
-      <button class="quiz-close" id="quizCloseBtn">✕</button>
-    </div>
-    <div class="quiz-progress-bar"><div class="quiz-progress-fill" id="quizProgressFill"></div></div>
-    <div class="quiz-settings" id="quizSettings">
-      <span class="quiz-settings-label">Up to:</span>
-      <button class="quiz-range-btn active" data-digits="3">100s</button>
-      <button class="quiz-range-btn" data-digits="4">1,000s</button>
-      <button class="quiz-range-btn" data-digits="5">10,000s</button>
-      <button class="quiz-range-btn" data-digits="6">100,000s</button>
-      <span style="color:#d1d5db;margin:0 4px;">│</span>
-      <span class="quiz-settings-label">or</span>
-      <input type="text" id="quizCustomInput" placeholder="Type a number" style="
-        font-family:inherit; font-size:14px; font-weight:700;
-        padding:6px 12px; border-radius:8px; border:2px solid #d1d5db;
-        width:120px; color:var(--ink); background:white; outline:none;
-        transition: border-color 0.2s;
-      " />
-      <button class="quiz-range-btn" id="quizCustomBtn" style="background:var(--accent);color:white;border-color:var(--accent);">Go</button>
-    </div>
-    <div class="quiz-score">
-      <span id="quizQuestionNum">Question 1 of 10</span>
-      <span class="quiz-score-right" id="quizScoreDisplay">0 correct</span>
-    </div>
-    <div class="quiz-card" id="quizCard">
-    </div>
-  </div>
-
-  <!-- DATA LOG OVERLAY -->
-  <div id="quizDataOverlay">
-    <div class="quiz-data-card" id="quizDataCard">
-    </div>
-  </div>
-
-  <div id="app">
-    <div id="numberLinePanel">
-      <div class="zoom-bar-container">
-        <div class="zoom-bar" id="zoomBar">
-          <div class="zoom-indicator" id="zoomIndicator"></div>
-        </div>
-        <div class="zoom-labels">
-          <span class="zoom-label-btn" data-zoom="0">0.001</span>
-          <span class="zoom-label-btn" data-zoom="1">0.01</span>
-          <span class="zoom-label-btn" data-zoom="2">0.1</span>
-          <span class="zoom-label-btn" data-zoom="3">1</span>
-          <span class="zoom-label-btn" data-zoom="4">10</span>
-          <span class="zoom-label-btn" data-zoom="5">100</span>
-          <span class="zoom-label-btn" data-zoom="6">1K</span>
-          <span class="zoom-label-btn" data-zoom="7">10K</span>
-          <span class="zoom-label-btn" data-zoom="8">100K</span>
-          <span class="zoom-label-btn" data-zoom="9">1M</span>
-        </div>
-      </div>
-      <div class="number-line-container" id="numberLineContainer">
-        <div class="number-line" id="numberLine"></div>
-      </div>
-      <div class="zoom-hint">Ctrl+scroll or pinch to zoom</div>
-    </div>
-
-    <div id="workPane">
-      <div id="snapLine"><div class="decimal-point"></div></div>
-    </div>
-
-    <div id="bottomDock">
-      <div id="drawerTabs">
-        <button class="drawer-tab" data-drawer="millions">Millions</button>
-        <button class="drawer-tab" data-drawer="hundredThousands">H. Thousands</button>
-        <button class="drawer-tab" data-drawer="tenThousands">T. Thousands</button>
-        <button class="drawer-tab" data-drawer="thousands">Thousands</button>
-        <button class="drawer-tab" data-drawer="hundreds">Hundreds</button>
-        <button class="drawer-tab" data-drawer="tens">Tens</button>
-        <button class="drawer-tab active" data-drawer="ones">Ones</button>
-        <button class="drawer-tab" data-drawer="tenths">Tenths</button>
-        <button class="drawer-tab" data-drawer="hundredths">Hundredths</button>
-        <button class="drawer-tab" data-drawer="thousandths">Thousandths</button>
-      </div>
-      <div id="baseTiles">
-        <div class="base-row" id="baseRow"></div>
+  <div id="nlSection">
+    <div class="nl-zoom-row">
+      <div class="nl-zoom-bar" id="nlZoomBar"><div class="nl-zoom-ind" id="nlZoomInd"></div></div>
+      <div class="nl-zoom-labels">
+        <span class="nl-zoom-btn" data-z="0">0.001</span>
+        <span class="nl-zoom-btn" data-z="1">0.01</span>
+        <span class="nl-zoom-btn" data-z="2">0.1</span>
+        <span class="nl-zoom-btn" data-z="3">1</span>
+        <span class="nl-zoom-btn" data-z="4">10</span>
+        <span class="nl-zoom-btn" data-z="5">100</span>
+        <span class="nl-zoom-btn" data-z="6">1K</span>
+        <span class="nl-zoom-btn" data-z="7">10K</span>
+        <span class="nl-zoom-btn" data-z="8">100K</span>
+        <span class="nl-zoom-btn" data-z="9">1M</span>
       </div>
     </div>
+    <div class="nl-area"><div class="nl-line" id="nlLine"><div class="nl-axis"></div></div></div>
   </div>
 
   <script>
-    const BLOCK_SIZE = 40;
-    const BLOCK_HEIGHT = 60;
-    
-    const PLACE_VALUES = {
-      tenths: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
-      hundredths: [0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09],
-      thousandths: [0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009],
-      ones: [1, 2, 3, 4, 5, 6, 7, 8, 9],
-      tens: [10, 20, 30, 40, 50, 60, 70, 80, 90],
-      hundreds: [100, 200, 300, 400, 500, 600, 700, 800, 900],
-      thousands: [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000],
-      tenThousands: [10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000],
-      hundredThousands: [100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000],
-      millions: [1000000, 2000000, 3000000, 4000000, 5000000, 6000000, 7000000, 8000000, 9000000]
-    };
+    // ═══════════════════════════════════════
+    // GRID MODEL
+    // ═══════════════════════════════════════
+    // 10 cells indexed 0–9.
+    // Cell 0 = Millions, Cell 9 = Thousandths.
+    // In digits-slide mode, decimal is always between cell 6 & 7.
+    // In decimal-slide mode, decimal position moves.
+    //
+    // The number's digits (always 10: 7 whole padded + 3 decimal)
+    // are placed into cells. We track which cell each digit occupies.
+    // On ×10 (digits-slide), each digit's cell index decreases by 1
+    // and we smoothly animate the `left` CSS property.
 
-    const ZOOM_LEVELS = [
-      { name: 'Thousandths', step: 0.001, decimals: 4 },
-      { name: 'Hundredths', step: 0.01, decimals: 3 },
-      { name: 'Tenths', step: 0.1, decimals: 2 },
-      { name: 'Ones', step: 1, decimals: 1 },
-      { name: 'Tens', step: 10, decimals: 0 },
-      { name: 'Hundreds', step: 100, decimals: 0 },
-      { name: 'Thousands', step: 1000, decimals: 0 },
-      { name: 'Ten Thousands', step: 10000, decimals: 0 },
-      { name: 'Hundred Thousands', step: 100000, decimals: 0 },
-      { name: 'Millions', step: 1000000, decimals: 0 }
-    ];
+    const NUM_CELLS = 10;
+    const CELL_LABELS = ['M','100K','10K','1,000','100','10','1','0.1','0.01','0.001'];
 
-    let tiles = []; 
-    let activeDrawer = 'ones'; 
-    let currentTotal = 0;
-    let currentZoomIndex = 3;
-    let isExpanded = false;
-    let currentViewCenter = 0;
-    let targetViewCenter = 0;
-    let isAnimatingView = false;
-    
-    let isDragging = false;
-    let dragData = null;
-    let dragGhost = null;
-    let dragOffset = { x: 0, y: 0 };
-    let lastTouchDistance = null;
+    let currentValue = 3.14;
+    let mode = 'digits';
+    let showZeros = false;
+    let zoomIndex = 3;
+    let animating = false;
 
-    // ====== ZOOM LABEL HIGHLIGHTING ======
-    function updateZoomLabelHighlight() {
-      document.querySelectorAll('.zoom-label-btn').forEach(btn => {
-        btn.classList.toggle('active-zoom', parseInt(btn.dataset.zoom) === currentZoomIndex);
-      });
+    // The 10-char representation of the entered number
+    // Index 0=M digit, 6=ones digit, 7=tenths, 9=thousandths
+    let rawDigits = [];
+
+    // In digits-slide: which cell does rawDigits[0] sit in?
+    // Initially rawDigits[0] → cell 0, rawDigits[6] → cell 6, etc.
+    // After ×10, rawDigits[0] → cell -1 (off-screen left), rawDigits[6] → cell 5, etc.
+    // We track this as `baseCell`: rawDigits[i] is in cell (baseCell + i)
+    let baseCell = 0;
+
+    // In decimal-slide: decimal is after cell `decAfterCell`
+    // Starts at 4 (between 5th and 6th box) so digits are centered
+    let decAfterCell = 4;
+    // Offset so rawDigits map correctly: cell c shows rawDigits[c + decDigitOffset]
+    let decDigitOffset = 0;
+
+    // Layout measurements
+    let cellW = 0, cellH = 0, cellGap = 4, decGap = 12;
+    let cellCenters = []; // x-center of each cell
+    let cellTops = [];
+    let fontSize = 0;
+    let gridLeft = 0, gridTop = 0;
+
+    function valueToDigits(num) {
+      const n = Math.abs(num);
+      const w = String(Math.floor(n)).padStart(7, '0');
+      const d = (n - Math.floor(n)).toFixed(3).slice(2);
+      return [...w.split(''), ...d.split('')];
     }
 
-    // ====== NUMBER LINE ======
-    function formatNumberLineLabel(value, decimals) {
-      if (decimals <= 1) {
-        return Math.abs(value) >= 1000 ? Math.round(value).toLocaleString() : Math.round(value).toString();
-      }
-      return value.toFixed(decimals - 1);
-    }
-
-    function startViewAnimation() {
-      if (isAnimatingView) return;
-      isAnimatingView = true;
-      requestAnimationFrame(animateViewStep);
-    }
-
-    function animateViewStep() {
-      const diff = targetViewCenter - currentViewCenter;
-      if (Math.abs(diff) < 0.0001) {
-        currentViewCenter = targetViewCenter;
-        renderNumberLine();
-        isAnimatingView = false;
-        return;
-      }
-      currentViewCenter += diff * 0.05;
-      renderNumberLine();
-      if (isAnimatingView) requestAnimationFrame(animateViewStep);
-    }
-
-    function renderNumberLine() {
-      const numberLine = document.getElementById('numberLine');
-      const zoomIndicator = document.getElementById('zoomIndicator');
-      numberLine.innerHTML = '';
-      
-      const zoom = ZOOM_LEVELS[currentZoomIndex];
-      const step = zoom.step;
-      const decimals = zoom.decimals;
-      const visibleRange = step * 10; 
-      
-      zoomIndicator.style.left = `calc(${(currentZoomIndex / (ZOOM_LEVELS.length - 1)) * 100}% - 2px)`;
-      updateZoomLabelHighlight();
-      
-      let min = currentViewCenter - (visibleRange / 2);
-      let max = currentViewCenter + (visibleRange / 2);
-      if (min < 0) { min = 0; max = visibleRange; }
-      
-      const dotPosition = ((currentTotal - min) / (max - min)) * 100;
-      const firstMajor = Math.floor(min / step) * step;
-      
-      for (let v = firstMajor; v <= max + step; v += step) {
-        const val = parseFloat(v.toFixed(4));
-        if (val < min || val > max) continue;
-        
-        const posPercent = ((val - min) / (max - min)) * 100;
-        const tick = document.createElement('div');
-        tick.className = 'tick';
-        if (Math.round(val / step) % 5 === 0) tick.classList.add('major');
-        tick.style.left = posPercent + '%';
-        numberLine.appendChild(tick);
-        
-        const label = document.createElement('div');
-        label.className = 'tick-label';
-        label.style.left = posPercent + '%';
-        label.textContent = formatNumberLineLabel(val, decimals);
-        numberLine.appendChild(label);
-      }
-      
-      if (dotPosition >= -5 && dotPosition <= 105) {
-        const valueDot = document.createElement('div');
-        valueDot.className = 'value-dot';
-        valueDot.style.left = dotPosition + '%';
-        const dotLabel = document.createElement('div');
-        dotLabel.className = 'dot-label';
-        dotLabel.textContent = currentTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 3 });
-        valueDot.appendChild(dotLabel);
-        numberLine.appendChild(valueDot);
-      }
-    }
-
-    function updateNumberLineTarget() {
-      const zoom = ZOOM_LEVELS[currentZoomIndex];
-      const visibleRange = zoom.step * 10;
-      const threshold = visibleRange * 0.35;
-      
-      if (Math.abs(currentTotal - targetViewCenter) > threshold) {
-        targetViewCenter = Math.max(currentTotal, visibleRange / 2);
-        startViewAnimation();
-      } else if (!isAnimatingView) {
-        renderNumberLine();
-      }
-    }
-
-    function snapNumberLine() {
-      const visibleRange = ZOOM_LEVELS[currentZoomIndex].step * 10;
-      targetViewCenter = currentViewCenter = Math.max(currentTotal, visibleRange / 2);
-      isAnimatingView = false;
-      renderNumberLine();
-    }
-
-    // ====== CLICKABLE ZOOM BAR ======
-    const zoomBar = document.getElementById('zoomBar');
-    zoomBar.addEventListener('click', (e) => {
-      const rect = zoomBar.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const pct = clickX / rect.width;
-      const newIndex = Math.round(pct * (ZOOM_LEVELS.length - 1));
-      currentZoomIndex = Math.max(0, Math.min(ZOOM_LEVELS.length - 1, newIndex));
-      snapNumberLine();
-    });
-
-    // ====== CLICKABLE ZOOM LABELS ======
-    document.querySelectorAll('.zoom-label-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        currentZoomIndex = parseInt(btn.dataset.zoom);
-        snapNumberLine();
-      });
-    });
-
-    const numberLineContainer = document.getElementById('numberLineContainer');
-    numberLineContainer.addEventListener('wheel', (e) => {
-      if (e.ctrlKey) {
-        e.preventDefault();
-        if (e.deltaY < 0 && currentZoomIndex < ZOOM_LEVELS.length - 1) currentZoomIndex++;
-        else if (e.deltaY > 0 && currentZoomIndex > 0) currentZoomIndex--;
-        snapNumberLine();
-      }
-    });
-    
-    numberLineContainer.addEventListener('touchstart', (e) => {
-      if (e.touches.length === 2) lastTouchDistance = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-    });
-    numberLineContainer.addEventListener('touchmove', (e) => {
-      if (e.touches.length === 2 && lastTouchDistance) {
-        e.preventDefault();
-        const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-        if (Math.abs(dist - lastTouchDistance) > 15) {
-          if (dist > lastTouchDistance && currentZoomIndex < ZOOM_LEVELS.length - 1) currentZoomIndex++;
-          else if (dist < lastTouchDistance && currentZoomIndex > 0) currentZoomIndex--;
-          snapNumberLine();
-          lastTouchDistance = dist;
-        }
-      }
-    });
-    numberLineContainer.addEventListener('touchend', () => { lastTouchDistance = null; });
-
-    // ====== HELPERS ======
-    function getPlaceValueType(value) {
-      if (value < 0.01) return 'thousandths';
-      if (value < 0.1) return 'hundredths';
-      if (value < 1) return 'tenths';
-      if (value < 10) return 'ones';
-      if (value < 100) return 'tens';
-      if (value < 1000) return 'hundreds';
-      if (value < 10000) return 'thousands';
-      if (value < 100000) return 'tenThousands';
-      if (value < 1000000) return 'hundredThousands';
-      return 'millions';
-    }
-
-    function isDecimalValue(value) { return value < 1; }
-
-    function getDigitsArray(value, showFullDecimal = false) {
-      let str;
-      if (value < 1) {
-        str = value < 0.01 ? value.toFixed(3) : value < 0.1 ? value.toFixed(2) : value.toFixed(1);
-        return showFullDecimal ? str.split('') : str.split('.')[1].split('');
-      }
-      str = String(Math.floor(value));
-      const result = [];
-      for (let i = 0; i < str.length; i++) {
-        result.push(str[i]);
-        const posFromRight = str.length - i - 1;
-        if (posFromRight > 0 && posFromRight % 3 === 0) result.push(',');
-      }
-      return result;
-    }
-
-    function getPlaceValueOrder(placeValue) {
-      return { thousandths: 100, hundredths: 101, tenths: 102, millions: 103, hundredThousands: 104, tenThousands: 105, thousands: 106, hundreds: 107, tens: 108, ones: 109 }[placeValue];
-    }
-
-    function getSnapLinePosition(placeValue) {
-      const workPane = document.getElementById('workPane');
-      const paneRect = workPane.getBoundingClientRect();
-      const decimalPoint = document.querySelector('#snapLine .decimal-point');
-      const pointRect = decimalPoint.getBoundingClientRect();
-      
-      const snapY = (paneRect.height / 2) - (BLOCK_HEIGHT / 2);
-      const centerX = pointRect.left - paneRect.left + (pointRect.width / 2);
-      const DECIMAL_SPACING = 8;
-      const EXPAND_GAP = 30;
-      const scale = getScaleFactor();
-      const scaledBlockSize = BLOCK_SIZE * scale;
-      
-      const decimalPlaces = ['tenths', 'hundredths', 'thousandths'];
-      const wholePlaces = ['ones', 'tens', 'hundreds', 'thousands', 'tenThousands', 'hundredThousands', 'millions'];
-      const snappedTiles = tiles.filter(t => t.snappedToLine);
-      
-      if (decimalPlaces.includes(placeValue)) {
-        const position = decimalPlaces.indexOf(placeValue);
-        if (isExpanded) {
-          let offsetX = DECIMAL_SPACING;
-          for (let i = 0; i < position; i++) {
-            if (snappedTiles.some(t => t.placeValue === decimalPlaces[i])) {
-              offsetX += getExpandedCardWidthForPlaceValue(decimalPlaces[i]) * scale + EXPAND_GAP;
-            }
-          }
-          return { x: centerX + offsetX, y: snapY };
+    function computeValue() {
+      let whole = '', frac = '';
+      for (let c = 0; c < NUM_CELLS; c++) {
+        let ri;
+        if (mode === 'digits') {
+          ri = c + baseCell;
         } else {
-          const rightEdgeX = centerX + DECIMAL_SPACING + ((position + 1) * scaledBlockSize);
-          return { x: rightEdgeX - getCardWidthForSnapped(placeValue, scale), y: snapY };
+          ri = c + decDigitOffset;
         }
-      } else {
-        const position = wholePlaces.indexOf(placeValue);
-        if (isExpanded) {
-          let offsetX = DECIMAL_SPACING + getExpandedCardWidthForPlaceValue(placeValue) * scale;
-          for (let i = 0; i < position; i++) {
-            if (snappedTiles.some(t => t.placeValue === wholePlaces[i])) {
-              offsetX += getExpandedCardWidthForPlaceValue(wholePlaces[i]) * scale + EXPAND_GAP;
-            }
-          }
-          return { x: centerX - offsetX, y: snapY };
+        const d = (ri >= 0 && ri < rawDigits.length) ? rawDigits[ri] : '0';
+        if (mode === 'digits') {
+          if (c <= 6) whole += d; else frac += d;
         } else {
-          return { x: centerX - DECIMAL_SPACING - getCardWidthForSnapped(placeValue, scale), y: snapY };
+          if (c <= decAfterCell) whole += d; else frac += d;
         }
       }
+      return parseFloat((parseInt(whole) || 0) + '.' + (frac || '0'));
     }
-    
-    function getExpandedCardWidthForPlaceValue(placeValue) {
-      const values = { tenths: 0.1, hundredths: 0.01, thousandths: 0.001, ones: 1, tens: 10, hundreds: 100, thousands: 1000, tenThousands: 10000, hundredThousands: 100000, millions: 1000000 };
-      return getExpandedCardWidth(values[placeValue] || 1);
-    }
-    
-    function getCardWidthForSnapped(placeValue, scale = 1) {
-      const decimalDigits = { tenths: 1, hundredths: 2, thousandths: 3 };
-      const wholeDigits = { ones: 1, tens: 2, hundreds: 3, thousands: 5, tenThousands: 6, hundredThousands: 7, millions: 9 };
-      if (decimalDigits[placeValue]) return decimalDigits[placeValue] * BLOCK_SIZE * scale;
-      if (wholeDigits[placeValue]) {
-        const commas = placeValue === 'thousands' ? 1 : ['tenThousands', 'hundredThousands'].includes(placeValue) ? 1 : placeValue === 'millions' ? 2 : 0;
-        return ((wholeDigits[placeValue] - commas) * BLOCK_SIZE + commas * 14) * scale;
+
+    // ═══════════════════════════════════════
+    // LAYOUT
+    // ═══════════════════════════════════════
+    function calcLayout() {
+      const area = document.getElementById('gridArea');
+      const maxW = area.offsetWidth - 24;
+      const maxH = area.offsetHeight * 0.5;
+
+      // Total width: 10 cells + 9 gaps + 1 decimal gap
+      // cellW * 10 + cellGap * 9 + decGap = maxW
+      cellW = Math.min((maxW - cellGap * 9 - decGap) / 10, maxH * 0.95, 90);
+      cellW = Math.max(cellW, 36);
+      cellH = cellW;
+      fontSize = cellW * 0.62;
+
+      // Compute cell centers
+      const totalW = cellW * 10 + cellGap * 9 + decGap;
+      const startX = (area.offsetWidth - totalW) / 2;
+      const startY = (area.offsetHeight - cellH) / 2 - fontSize * 0.15;
+
+      cellCenters = [];
+      let x = startX;
+      const decBetween = (mode === 'digits') ? 6 : 4; // decimal mode: gap always at initial center
+      for (let c = 0; c < NUM_CELLS; c++) {
+        cellCenters.push(x + cellW / 2);
+        x += cellW + cellGap;
+        if (c === decBetween) x += decGap; // extra gap for decimal
       }
-      return BLOCK_SIZE * scale;
-    }
-    
-    function getScaleFactor() {
-      const workPane = document.getElementById('workPane');
-      if (!workPane) return 1;
-      const paneWidth = workPane.getBoundingClientRect().width;
-      const snappedTiles = tiles.filter(t => t.snappedToLine);
-      if (snappedTiles.length === 0) return 1;
-      
-      let totalWidth = 50;
-      if (isExpanded) {
-        const EXPAND_GAP = 30;
-        snappedTiles.forEach((t, i) => {
-          totalWidth += getExpandedCardWidthForPlaceValue(t.placeValue);
-          if (i < snappedTiles.length - 1) totalWidth += EXPAND_GAP;
-        });
-      } else {
-        const decimalPlaces = ['tenths', 'hundredths', 'thousandths'];
-        let wholeSlots = 0, decimalSlots = 0;
-        snappedTiles.forEach(t => {
-          if (decimalPlaces.includes(t.placeValue)) decimalSlots = Math.max(decimalSlots, decimalPlaces.indexOf(t.placeValue) + 1);
-          else wholeSlots = Math.max(wholeSlots, ['ones', 'tens', 'hundreds', 'thousands', 'tenThousands', 'hundredThousands', 'millions'].indexOf(t.placeValue) + 1);
-        });
-        totalWidth = (wholeSlots + decimalSlots) * BLOCK_SIZE + 50;
-      }
-      const scale = totalWidth > paneWidth * 0.9 ? (paneWidth * 0.9) / totalWidth : 1;
-      return Math.max(0.4, scale);
-    }
-    
-    function getExpandedCardWidth(value) {
-      return getDigitsArray(value, true).reduce((w, c) => w + (c === ',' || c === '.' ? 14 : BLOCK_SIZE), 0);
+      gridLeft = startX;
+      gridTop = startY;
     }
 
-    // ====== CREATE TILE ELEMENT ======
-    function createTileElement(value, showFullDecimal) {
-      const el = document.createElement('div');
-      const isDecimal = isDecimalValue(value);
-      const digits = getDigitsArray(value, showFullDecimal);
-      el.className = `tile${isDecimal ? ' decimal-tile' : ''}`;
-      digits.forEach(char => {
-        const d = document.createElement('div');
-        d.className = char === ',' ? 'digit-block comma-block' : char === '.' ? 'digit-block decimal-block' : 'digit-block';
-        d.textContent = char;
-        el.appendChild(d);
-      });
-      return el;
-    }
+    // ═══════════════════════════════════════
+    // DRAW STATIC ELEMENTS (cells, labels, decimal dot)
+    // ═══════════════════════════════════════
+    function drawBackground() {
+      const container = document.getElementById('gridContainer');
+      container.innerHTML = '';
+      const area = document.getElementById('gridArea');
+      container.style.width = area.offsetWidth + 'px';
+      container.style.height = area.offsetHeight + 'px';
 
-    // ====== RENDER ======
-    function renderActiveDrawer() {
-      const baseRow = document.getElementById('baseRow');
-      baseRow.innerHTML = '';
-      (PLACE_VALUES[activeDrawer] || []).forEach(val => {
-        const tile = createTileElement(val, isDecimalValue(val));
-        tile.dataset.value = val;
-        tile.addEventListener('pointerdown', (e) => startDrag(e, val, 'tray'));
-        baseRow.appendChild(tile);
-      });
-    }
+      calcLayout();
 
-    function renderWorkPane(animate = false) {
-      const workPane = document.getElementById('workPane');
-      workPane.querySelectorAll('.work-pane-tile, .plus-sign').forEach(el => el.remove());
-      
-      let sum = 0;
-      const scale = getScaleFactor();
-      
-      tiles.forEach(tile => {
-        if (tile.snappedToLine) {
-          const pos = getSnapLinePosition(tile.placeValue);
-          tile.x = pos.x;
-          tile.y = pos.y;
+      const decBetween = (mode === 'digits') ? 6 : decAfterCell;
+
+      // Draw cells
+      for (let c = 0; c < NUM_CELLS; c++) {
+        const cell = document.createElement('div');
+        cell.className = 'bg-cell';
+        cell.style.left = (cellCenters[c] - cellW / 2) + 'px';
+        cell.style.top = gridTop + 'px';
+        cell.style.width = cellW + 'px';
+        cell.style.height = cellH + 'px';
+        container.appendChild(cell);
+
+        // Label
+        let labelIdx;
+        if (mode === 'decimal') {
+          labelIdx = c - decAfterCell + 6;
+        } else {
+          labelIdx = c;
         }
-      });
-      
-      const sortedTiles = [...tiles].sort((a, b) => a.zIndex - b.zIndex);
-      const snappedTiles = sortedTiles.filter(t => t.snappedToLine);
+        if (labelIdx >= 0 && labelIdx < CELL_LABELS.length) {
+          const lbl = document.createElement('div');
+          lbl.className = 'bg-label';
+          lbl.style.left = cellCenters[c] + 'px';
+          lbl.style.top = (gridTop + cellH + 6) + 'px';
+          lbl.style.transform = 'translateX(-50%)';
+          lbl.style.fontSize = Math.max(fontSize * 0.18, 9) + 'px';
+          lbl.textContent = CELL_LABELS[labelIdx];
+          container.appendChild(lbl);
+        }
+      }
 
-      sortedTiles.forEach(tile => {
-        sum += tile.value;
-        const isDecimal = isDecimalValue(tile.value);
-        const showFull = !tile.snappedToLine || isExpanded;
-        const digits = getDigitsArray(tile.value, isDecimal && showFull);
+      // Decimal dot
+      const dotX = (cellCenters[decBetween] + cellW / 2 + cellCenters[decBetween + 1] - cellW / 2) / 2;
+      const dot = document.createElement('div');
+      dot.id = 'decimalDot';
+      dot.textContent = '.';
+      dot.style.left = dotX + 'px';
+      dot.style.top = (gridTop + cellH * 0.28) + 'px';
+      dot.style.fontSize = fontSize + 'px';
+      dot.style.transform = 'translateX(-50%)';
+      container.appendChild(dot);
+
+      // Digit elements
+      drawDigits(false);
+    }
+
+    // ═══════════════════════════════════════
+    // DRAW / UPDATE DIGITS
+    // ═══════════════════════════════════════
+    function drawDigits(transitionOn) {
+      const container = document.getElementById('gridContainer');
+      // Remove old digits
+      container.querySelectorAll('.floating-digit').forEach(el => el.remove());
+
+      const decBetween = (mode === 'digits') ? 6 : decAfterCell;
+
+      // Determine significance
+      let dispDigits = [];
+      for (let c = 0; c < NUM_CELLS; c++) {
+        const ri = (mode === 'digits') ? (c + baseCell) : (c + decDigitOffset);
+        dispDigits[c] = (ri >= 0 && ri < rawDigits.length) ? rawDigits[ri] : '0';
+      }
+
+      let sigFirst = dispDigits.findIndex(d => d !== '0');
+      if (sigFirst === -1) sigFirst = decBetween;
+      sigFirst = Math.min(sigFirst, decBetween);
+      let sigLast = decBetween + 1;
+      for (let i = NUM_CELLS - 1; i > decBetween; i--) {
+        if (dispDigits[i] !== '0') { sigLast = i; break; }
+      }
+      sigLast = Math.max(sigLast, decBetween + 1);
+
+      for (let c = 0; c < NUM_CELLS; c++) {
+        const d = dispDigits[c];
+        const isSig = c >= sigFirst && c <= sigLast;
+        const isEmpty = d === '0' && !isSig;
 
         const el = document.createElement('div');
-        el.className = `tile work-pane-tile${isDecimal ? ' decimal-tile' : ''}`;
-        if (animate) el.classList.add('sliding');
-        el.style.cssText = `left:${tile.x}px;top:${tile.y}px;z-index:${tile.zIndex}`;
-        if (tile.snappedToLine && scale < 1) {
-          el.style.transform = `scale(${scale})`;
-          el.style.transformOrigin = isDecimal ? 'left center' : 'right center';
-        }
-        digits.forEach(char => {
-          const d = document.createElement('div');
-          d.className = char === ',' ? 'digit-block comma-block' : char === '.' ? 'digit-block decimal-block' : 'digit-block';
-          d.textContent = char;
-          el.appendChild(d);
-        });
-        el.addEventListener('pointerdown', (e) => startDrag(e, tile.value, tile.id));
-        workPane.appendChild(el);
-      });
-      
-      if (isExpanded && snappedTiles.length > 1) {
-        const paneHeight = workPane.getBoundingClientRect().height;
-        const plusY = (paneHeight / 2) - (BLOCK_HEIGHT * scale / 2);
-        const decimalPoint = document.querySelector('#snapLine .decimal-point');
-        const pointRect = decimalPoint.getBoundingClientRect();
-        const paneRect = workPane.getBoundingClientRect();
-        const decimalCenterX = pointRect.left - paneRect.left + (pointRect.width / 2);
-        const EXPAND_GAP = 30;
-        
-        const wholeTiles = snappedTiles.filter(t => !isDecimalValue(t.value)).sort((a, b) => b.x - a.x);
-        const decimalTiles = snappedTiles.filter(t => isDecimalValue(t.value)).sort((a, b) => a.x - b.x);
-        
-        for (let i = 0; i < wholeTiles.length - 1; i++) {
-          const leftTile = wholeTiles[i + 1];
-          const plusX = leftTile.x + getExpandedCardWidth(leftTile.value) * scale + 5;
-          const plus = document.createElement('div');
-          plus.className = 'plus-sign';
-          plus.textContent = '+';
-          plus.style.left = plusX + 'px';
-          plus.style.top = plusY + 'px';
-          plus.style.fontSize = (28 * scale) + 'px';
-          workPane.appendChild(plus);
-        }
-        
-        if (wholeTiles.length > 0 && decimalTiles.length > 0) {
-          const plus = document.createElement('div');
-          plus.className = 'plus-sign';
-          plus.textContent = '+';
-          plus.style.left = (decimalCenterX - 15) + 'px';
-          plus.style.top = plusY + 'px';
-          plus.style.fontSize = (28 * scale) + 'px';
-          workPane.appendChild(plus);
-        }
-        
-        for (let i = 0; i < decimalTiles.length - 1; i++) {
-          const leftTile = decimalTiles[i];
-          const plusX = leftTile.x + getExpandedCardWidth(leftTile.value) * scale + 5;
-          const plus = document.createElement('div');
-          plus.className = 'plus-sign';
-          plus.textContent = '+';
-          plus.style.left = plusX + 'px';
-          plus.style.top = plusY + 'px';
-          plus.style.fontSize = (28 * scale) + 'px';
-          workPane.appendChild(plus);
-        }
-      }
-      
-      updateTotal(sum);
-    }
+        el.className = 'floating-digit';
+        el.dataset.cell = c;
 
-    function updateTotal(val) {
-      currentTotal = parseFloat(val.toFixed(4));
-      document.getElementById('sumText').textContent = new Intl.NumberFormat('en-US').format(currentTotal);
-      updateNumberLineTarget();
-    }
-
-    // ====== DRAG SYSTEM ======
-    function startDrag(e, value, source) {
-      e.preventDefault();
-      e.stopPropagation();
-      
-      const rect = e.currentTarget.getBoundingClientRect();
-      const placeValue = getPlaceValueType(value);
-      const isDecimal = isDecimalValue(value);
-      
-      dragData = { value, placeValue, source, isDecimal };
-      dragOffset = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-      
-      dragGhost = createTileElement(value, isDecimal);
-      dragGhost.classList.add('drag-ghost');
-      document.body.appendChild(dragGhost);
-      
-      updateGhostPosition(e.clientX, e.clientY);
-      isDragging = true;
-      
-      document.addEventListener('pointermove', onDragMove);
-      document.addEventListener('pointerup', onDragEnd);
-      document.addEventListener('pointercancel', onDragEnd);
-    }
-    
-    function updateGhostPosition(clientX, clientY) {
-      if (!dragGhost) return;
-      dragGhost.style.left = (clientX - dragOffset.x) + 'px';
-      dragGhost.style.top = (clientY - dragOffset.y) + 'px';
-    }
-    
-    function onDragMove(e) {
-      if (!isDragging) return;
-      e.preventDefault();
-      updateGhostPosition(e.clientX, e.clientY);
-    }
-    
-    function onDragEnd(e) {
-      if (!isDragging) return;
-      
-      document.removeEventListener('pointermove', onDragMove);
-      document.removeEventListener('pointerup', onDragEnd);
-      document.removeEventListener('pointercancel', onDragEnd);
-      
-      if (dragGhost) { dragGhost.remove(); dragGhost = null; }
-      
-      const workPane = document.getElementById('workPane');
-      const paneRect = workPane.getBoundingClientRect();
-      
-      if (e.clientY >= paneRect.top && e.clientY <= paneRect.bottom) {
-        const dropY = e.clientY - paneRect.top;
-        const centerY = paneRect.height / 2;
-        const snapZone = BLOCK_HEIGHT * 1.5;
-        const touchingLine = Math.abs(dropY - centerY) < snapZone;
-        
-        const snapPos = getSnapLinePosition(dragData.placeValue);
-        const order = getPlaceValueOrder(dragData.placeValue);
-        const zIndex = 1000 + order;
-        
-        let finalX, finalY, snappedToLine;
-        
-        if (touchingLine) {
-          finalX = snapPos.x; finalY = snapPos.y; snappedToLine = true;
-          tiles = tiles.filter(t => {
-            if (t.id === dragData.source) return true;
-            return !(t.placeValue === dragData.placeValue && t.snappedToLine);
-          });
-        } else {
-          finalX = e.clientX - paneRect.left - dragOffset.x;
-          finalY = dropY - dragOffset.y;
-          snappedToLine = false;
-        }
-        
-        if (dragData.source === 'tray') {
-          tiles.push({ id: Date.now() + Math.random(), value: dragData.value, placeValue: dragData.placeValue, x: finalX, y: finalY, snappedToLine, zIndex });
-        } else {
-          const existing = tiles.find(t => t.id === dragData.source);
-          if (existing) { existing.x = finalX; existing.y = finalY; existing.snappedToLine = snappedToLine; existing.zIndex = zIndex; }
-        }
-      } else if (dragData.source !== 'tray') {
-        tiles = tiles.filter(t => t.id !== dragData.source);
-      }
-      
-      isDragging = false; dragData = null;
-      renderWorkPane();
-    }
-
-    // ====== NUMBER INPUT ======
-    const totalDisplay = document.getElementById('totalDisplay');
-    const numberInputWrapper = document.getElementById('numberInputWrapper');
-    const numberInput = document.getElementById('numberInput');
-    const inputConfirm = document.getElementById('inputConfirm');
-    const inputCancel = document.getElementById('inputCancel');
-    const speakBtn = document.getElementById('speakBtn');
-    
-    function showNumberInput() {
-      totalDisplay.classList.add('editing');
-      numberInputWrapper.classList.add('active');
-      numberInput.value = currentTotal > 0 ? currentTotal.toString() : '';
-      numberInput.focus(); numberInput.select();
-    }
-    
-    function hideNumberInput() {
-      totalDisplay.classList.remove('editing');
-      numberInputWrapper.classList.remove('active');
-    }
-    
-    function parseAndCreateTiles(inputValue) {
-      const num = parseFloat(inputValue);
-      if (isNaN(num) || num < 0 || num >= 10000000) {
-        showMessage('⚠️', 'Please enter a number between 0 and 9,999,999.999');
-        return;
-      }
-      
-      tiles = tiles.filter(t => !t.snappedToLine);
-      const str = num.toFixed(3);
-      const [wholePart, decimalPart] = str.split('.');
-      
-      const placeValueMap = [
-        { place: 'millions', divisor: 1000000 },
-        { place: 'hundredThousands', divisor: 100000 },
-        { place: 'tenThousands', divisor: 10000 },
-        { place: 'thousands', divisor: 1000 },
-        { place: 'hundreds', divisor: 100 },
-        { place: 'tens', divisor: 10 },
-        { place: 'ones', divisor: 1 }
-      ];
-      
-      let remaining = parseInt(wholePart) || 0;
-      placeValueMap.forEach(({ place, divisor }) => {
-        const digit = Math.floor(remaining / divisor);
-        if (digit > 0) {
-          tiles.push({ id: Date.now() + Math.random(), value: digit * divisor, placeValue: place, x: 0, y: 0, snappedToLine: true, zIndex: 1000 + getPlaceValueOrder(place) });
-        }
-        remaining = remaining % divisor;
-      });
-      
-      if (decimalPart) {
-        [{ place: 'tenths', index: 0, multiplier: 0.1 }, { place: 'hundredths', index: 1, multiplier: 0.01 }, { place: 'thousandths', index: 2, multiplier: 0.001 }].forEach(({ place, index, multiplier }) => {
-          const digit = parseInt(decimalPart[index]) || 0;
-          if (digit > 0) {
-            tiles.push({ id: Date.now() + Math.random(), value: parseFloat((digit * multiplier).toFixed(3)), placeValue: place, x: 0, y: 0, snappedToLine: true, zIndex: 1000 + getPlaceValueOrder(place) });
-          }
-        });
-      }
-      
-      if (num >= 1000000) currentZoomIndex = 9;
-      else if (num >= 100000) currentZoomIndex = 8;
-      else if (num >= 10000) currentZoomIndex = 7;
-      else if (num >= 1000) currentZoomIndex = 6;
-      else if (num >= 100) currentZoomIndex = 5;
-      else if (num >= 10) currentZoomIndex = 4;
-      else if (num >= 1) currentZoomIndex = 3;
-      else if (num >= 0.1) currentZoomIndex = 2;
-      else if (num >= 0.01) currentZoomIndex = 1;
-      else currentZoomIndex = 0;
-      
-      hideNumberInput();
-      renderWorkPane();
-      snapNumberLine();
-    }
-    
-    totalDisplay.addEventListener('click', (e) => {
-      if (e.target === speakBtn || speakBtn.contains(e.target)) return;
-      showNumberInput();
-    });
-    inputConfirm.addEventListener('click', () => { parseAndCreateTiles(numberInput.value); });
-    inputCancel.addEventListener('click', hideNumberInput);
-    numberInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') parseAndCreateTiles(numberInput.value);
-      else if (e.key === 'Escape') hideNumberInput();
-    });
-
-    // ====== EVENT LISTENERS ======
-    speakBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const utterance = new SpeechSynthesisUtterance(currentTotal.toString());
-      utterance.rate = 0.9;
-      window.speechSynthesis.speak(utterance);
-    });
-
-    document.getElementById('expandBtn').addEventListener('click', () => {
-      if (tiles.filter(t => t.snappedToLine).length === 0) return;
-      isExpanded = !isExpanded;
-      document.getElementById('expandBtn').innerHTML = isExpanded ? '<span class="btn-icon">🔗</span> Collapse' : '<span class="btn-icon">💥</span> Expand';
-      renderWorkPane();
-    });
-    
-    // ====== MULTIPLY / DIVIDE BY 10 ======
-    function showMessage(emoji, text) {
-      const popup = document.getElementById('messagePopup');
-      popup.querySelector('.emoji').textContent = emoji;
-      popup.querySelector('.text').textContent = text;
-      popup.classList.add('show');
-      setTimeout(() => popup.classList.remove('show'), 2500);
-    }
-    
-    function getNextPlaceValue(placeValue, direction) {
-      const allPlaces = ['thousandths', 'hundredths', 'tenths', 'ones', 'tens', 'hundreds', 'thousands', 'tenThousands', 'hundredThousands', 'millions'];
-      const idx = allPlaces.indexOf(placeValue);
-      const newIdx = idx + direction;
-      if (newIdx < 0 || newIdx >= allPlaces.length) return null;
-      return allPlaces[newIdx];
-    }
-    
-    function getValueForPlaceValue(digit, placeValue) {
-      const multipliers = { 'thousandths': 0.001, 'hundredths': 0.01, 'tenths': 0.1, 'ones': 1, 'tens': 10, 'hundreds': 100, 'thousands': 1000, 'tenThousands': 10000, 'hundredThousands': 100000, 'millions': 1000000 };
-      return digit * multipliers[placeValue];
-    }
-    
-    function getDigitFromValue(value) {
-      if (value < 1) {
-        const str = value.toFixed(3);
-        for (let c of str) { if (c !== '0' && c !== '.') return parseInt(c); }
-      }
-      return parseInt(String(Math.floor(value))[0]);
-    }
-    
-    function multiplyByTen() {
-      const snappedTiles = tiles.filter(t => t.snappedToLine);
-      if (snappedTiles.length === 0) return;
-      
-      for (let tile of snappedTiles) {
-        const newPlace = getNextPlaceValue(tile.placeValue, 1);
-        if (!newPlace) {
-          const newValue = currentTotal * 10;
-          if (newValue >= 10000000) showMessage('🚀', `Whoa! That would be ${newValue.toLocaleString()} — too big for our number line!`);
-          else showMessage('📈', `That would push past millions!`);
-          return;
-        }
-      }
-      
-      const newPlaceValues = snappedTiles.map(t => getNextPlaceValue(t.placeValue, 1));
-      if (new Set(newPlaceValues).size !== newPlaceValues.length) { showMessage('🤔', `Some digits would stack up! Try a different number.`); return; }
-      
-      if (isExpanded) { isExpanded = false; document.getElementById('expandBtn').innerHTML = '<span class="btn-icon">💥</span> Expand'; }
-      animateTransform(1);
-    }
-    
-    function divideByTen() {
-      const snappedTiles = tiles.filter(t => t.snappedToLine);
-      if (snappedTiles.length === 0) return;
-      
-      for (let tile of snappedTiles) {
-        const newPlace = getNextPlaceValue(tile.placeValue, -1);
-        if (!newPlace) { showMessage('🔬', `The ${tile.placeValue} digit (${getDigitFromValue(tile.value)}) would become ten-thousandths — smaller than we can show!`); return; }
-      }
-      
-      const newPlaceValues = snappedTiles.map(t => getNextPlaceValue(t.placeValue, -1));
-      if (new Set(newPlaceValues).size !== newPlaceValues.length) { showMessage('🤔', `Some digits would stack up! Try a different number.`); return; }
-      
-      if (isExpanded) { isExpanded = false; document.getElementById('expandBtn').innerHTML = '<span class="btn-icon">💥</span> Expand'; }
-      animateTransform(-1);
-    }
-    
-    function animateTransform(direction) {
-      const snappedTiles = tiles.filter(t => t.snappedToLine);
-      const workPane = document.getElementById('workPane');
-      const tileElements = [...workPane.querySelectorAll('.work-pane-tile')];
-      
-      const animationData = snappedTiles.map((tile, idx) => {
-        const digit = getDigitFromValue(tile.value);
-        const newPlaceValue = getNextPlaceValue(tile.placeValue, direction);
-        const newValue = getValueForPlaceValue(digit, newPlaceValue);
-        const wasDecimal = isDecimalValue(tile.value);
-        const willBeDecimal = isDecimalValue(newValue);
-        const el = tileElements.find(e => Math.abs(parseFloat(e.style.left) - tile.x) < 5);
-        return { tile, el, digit, newPlaceValue, newValue, wasDecimal, willBeDecimal, colorChange: wasDecimal !== willBeDecimal };
-      });
-      
-      animationData.forEach(data => {
-        data.tile.placeValue = data.newPlaceValue;
-        data.tile.value = data.newValue;
-        data.tile.zIndex = 1000 + getPlaceValueOrder(data.newPlaceValue);
-      });
-      
-      snappedTiles.forEach(tile => { const newPos = getSnapLinePosition(tile.placeValue); tile.x = newPos.x; tile.y = newPos.y; });
-      
-      animationData.forEach(data => {
-        if (!data.el) return;
-        data.el.style.transition = 'left 0.5s ease-in-out, background 0.5s ease-in-out, border-color 0.5s ease-in-out';
-        data.el.style.left = data.tile.x + 'px';
-        if (data.colorChange) {
-          if (data.willBeDecimal) {
-            data.el.style.background = 'var(--decimal-bg)'; data.el.style.borderColor = 'var(--decimal-border)';
-            data.el.querySelectorAll('.digit-block').forEach(d => { d.style.transition = 'color 0.5s ease-in-out'; d.style.color = 'var(--decimal-text)'; });
+        if (isEmpty) {
+          if (showZeros) {
+            el.classList.add('ghost');
+            el.textContent = '0';
           } else {
-            data.el.style.background = 'var(--whole-bg)'; data.el.style.borderColor = 'var(--whole-border)';
-            data.el.querySelectorAll('.digit-block').forEach(d => { d.style.transition = 'color 0.5s ease-in-out'; d.style.color = 'var(--whole-text)'; });
+            el.classList.add('invisible');
+            el.textContent = '0';
           }
+        } else {
+          el.textContent = d;
         }
-      });
-      
-      const newTotal = snappedTiles.reduce((sum, t) => sum + t.value, 0);
-      currentTotal = parseFloat(newTotal.toFixed(4));
-      document.getElementById('sumText').textContent = new Intl.NumberFormat('en-US').format(currentTotal);
-      
-      setTimeout(() => {
-        renderWorkPane();
-        if (currentTotal >= 1000000) currentZoomIndex = 9;
-        else if (currentTotal >= 100000) currentZoomIndex = 8;
-        else if (currentTotal >= 10000) currentZoomIndex = 7;
-        else if (currentTotal >= 1000) currentZoomIndex = 6;
-        else if (currentTotal >= 100) currentZoomIndex = 5;
-        else if (currentTotal >= 10) currentZoomIndex = 4;
-        else if (currentTotal >= 1) currentZoomIndex = 3;
-        else if (currentTotal >= 0.1) currentZoomIndex = 2;
-        else if (currentTotal >= 0.01) currentZoomIndex = 1;
-        else currentZoomIndex = 0;
-        snapNumberLine();
-      }, 550);
+
+        el.style.fontSize = fontSize + 'px';
+        el.style.width = cellW + 'px';
+        el.style.left = (cellCenters[c] - cellW / 2) + 'px';
+        el.style.top = (gridTop + (cellH - fontSize) / 2) + 'px';
+
+        if (transitionOn) {
+          el.style.transition = 'left 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+        } else {
+          el.style.transition = 'none';
+        }
+
+        container.appendChild(el);
+      }
     }
-    
-    document.getElementById('multiplyBtn').addEventListener('click', multiplyByTen);
-    document.getElementById('divideBtn').addEventListener('click', divideByTen);
 
-    document.querySelectorAll('.drawer-tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        activeDrawer = tab.dataset.drawer;
-        document.querySelectorAll('.drawer-tab').forEach(t => {
-          t.classList.toggle('active', t === tab);
-          if(t === tab) t.scrollIntoView({behavior: 'smooth', inline: 'center'});
+    // ═══════════════════════════════════════
+    // SLIDE DIGITS
+    // ═══════════════════════════════════════
+    function slideDigits(places) {
+      // places: +1 = ×10 (slide left), -1 = ÷10 (slide right)
+      if (animating) return;
+
+      if (mode === 'digits') {
+        const newBase = baseCell + places;
+        // Validate: check any sig digit still on screen
+        let anyVis = false;
+        for (let c = 0; c < NUM_CELLS; c++) {
+          const ri = c + newBase;
+          if (ri >= 0 && ri < rawDigits.length && rawDigits[ri] !== '0') { anyVis = true; break; }
+        }
+        if (!anyVis && currentValue !== 0) return;
+
+        // Check value in range
+        let whole = '', frac = '';
+        for (let c = 0; c < NUM_CELLS; c++) {
+          const ri = c + newBase;
+          const d = (ri >= 0 && ri < rawDigits.length) ? rawDigits[ri] : '0';
+          if (c <= 6) whole += d; else frac += d;
+        }
+        const testVal = parseFloat((parseInt(whole) || 0) + '.' + (frac || '0'));
+        if (testVal > 9999999.999) return;
+
+        animating = true;
+
+        // Get current digit elements
+        const container = document.getElementById('gridContainer');
+        const digitEls = container.querySelectorAll('.floating-digit');
+
+        // Each digit needs to move `places` cells to the LEFT
+        // That means its new x = cellCenters[currentCell - places]
+        // But we need to recalculate where they'd go
+        calcLayout(); // ensure cellCenters fresh
+
+        digitEls.forEach(el => {
+          const currentCell = parseInt(el.dataset.cell);
+          const targetCell = currentCell - places;
+
+          el.style.transition = 'left 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+
+          if (targetCell >= 0 && targetCell < NUM_CELLS) {
+            el.style.left = (cellCenters[targetCell] - cellW / 2) + 'px';
+          } else if (targetCell < 0) {
+            // Slide off left
+            el.style.left = (cellCenters[0] - cellW / 2 - cellW * Math.abs(targetCell)) + 'px';
+            el.style.opacity = '0';
+          } else {
+            // Slide off right
+            el.style.left = (cellCenters[NUM_CELLS - 1] + cellW / 2 + cellW * (targetCell - NUM_CELLS + 1)) + 'px';
+            el.style.opacity = '0';
+          }
         });
-        renderActiveDrawer();
-      });
-    });
 
-    document.getElementById('resetBtn').addEventListener('click', () => {
-      tiles = []; isExpanded = false;
-      document.getElementById('expandBtn').innerHTML = '<span class="btn-icon">💥</span> Expand';
-      renderWorkPane();
-    });
+        setTimeout(() => {
+          baseCell = newBase;
+          currentValue = parseFloat(computeValue().toFixed(4));
+          drawDigits(false);
+          autoZoom();
+          renderNumberLine();
+          animating = false;
+        }, 520);
 
-    // Start
-    renderActiveDrawer();
-    renderWorkPane();
-    snapNumberLine();
+      } else {
+        // Decimal slides mode — individual hops, one per place
+        const totalHops = Math.abs(places);
+        const direction = places > 0 ? 1 : -1; // +1 = right, -1 = left
 
+        // Validate final position
+        const finalDec = decAfterCell + places;
+        if (finalDec < 0 || finalDec >= NUM_CELLS - 1) return;
 
-    // ============================================
-    // QUIZ MODE
-    // ============================================
-    
-    const QUIZ_TOTAL = 10;
-    
-    const QUIZ_PLACES = [
-      { name: 'Hundred Thousands', symbol: '100,000' },
-      { name: 'Ten Thousands', symbol: '10,000' },
-      { name: 'Thousands', symbol: '1,000' },
-      { name: 'Hundreds', symbol: '100' },
-      { name: 'Tens', symbol: '10' },
-      { name: 'Ones', symbol: '1' }
+        animating = true;
+
+        function doOneHop(hopNum) {
+          const dot = document.getElementById('decimalDot');
+          if (!dot) { finishHops(); return; }
+
+          const oldDec = decAfterCell;
+          const nextDec = oldDec + direction;
+
+          // Target x: midpoint between cell nextDec right edge and cell nextDec+1 left edge
+          // Cell centers and widths are already computed, don't recalc
+          const targetX = (cellCenters[nextDec] + cellW / 2 + cellCenters[nextDec + 1] - cellW / 2) / 2;
+
+          const startX = parseFloat(dot.style.left);
+          const startY = parseFloat(dot.style.top);
+          const endX = targetX;
+          const arcHeight = cellH * 0.55;
+          const hopDuration = 320;
+          const t0 = performance.now();
+
+          function step(now) {
+            const elapsed = now - t0;
+            const t = Math.min(elapsed / hopDuration, 1);
+            // Smooth ease
+            const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+            const x = startX + (endX - startX) * ease;
+            // Downward parabola: positive arc pushes DOWN
+            const arc = arcHeight * 4 * t * (1 - t);
+            dot.style.left = x + 'px';
+            dot.style.top = (startY + arc) + 'px';
+
+            if (t < 1) {
+              requestAnimationFrame(step);
+            } else {
+              // Land this hop
+              dot.style.left = endX + 'px';
+              dot.style.top = startY + 'px';
+              decAfterCell = nextDec;
+
+              if (hopNum + 1 < totalHops) {
+                // Small pause between hops
+                setTimeout(() => doOneHop(hopNum + 1), 60);
+              } else {
+                finishHops();
+              }
+            }
+          }
+          requestAnimationFrame(step);
+        }
+
+        function finishHops() {
+          currentValue = parseFloat(computeValue().toFixed(4));
+          drawBackground();
+          autoZoom();
+          renderNumberLine();
+          animating = false;
+        }
+
+        doOneHop(0);
+      }
+    }
+
+    // ═══════════════════════════════════════
+    // SET VALUE
+    // ═══════════════════════════════════════
+    function setValue(num) {
+      currentValue = parseFloat(Math.max(0, Math.min(num, 9999999.999)).toFixed(4));
+      rawDigits = valueToDigits(currentValue);
+      baseCell = 0;
+      // In decimal mode, decimal starts between cells 4 & 5 (centered)
+      // rawDigits[6] = ones digit should be in cell 4
+      // So decDigitOffset = 6 - 4 = 2
+      decAfterCell = 4;
+      decDigitOffset = 2;
+      drawBackground();
+      autoZoom();
+      renderNumberLine();
+    }
+
+    // ═══════════════════════════════════════
+    // NUMBER LINE
+    // ═══════════════════════════════════════
+    const ZOOMS = [
+      { step: 0.001, dec: 4 }, { step: 0.01, dec: 3 }, { step: 0.1, dec: 2 },
+      { step: 1, dec: 1 }, { step: 10, dec: 0 }, { step: 100, dec: 0 },
+      { step: 1000, dec: 0 }, { step: 10000, dec: 0 }, { step: 100000, dec: 0 },
+      { step: 1000000, dec: 0 }
     ];
-
-    let quizState = {
-      questions: [],
-      current: 0,
-      score: 0,
-      log: [],
-      active: false,
-      digitCount: 3
-    };
-
-    const PLACE_ORDER = ['Hundred Thousands', 'Ten Thousands', 'Thousands', 'Hundreds', 'Tens', 'Ones'];
-
-    function getActivePlaces(digitCount) {
-      return PLACE_ORDER.slice(PLACE_ORDER.length - digitCount);
+    function autoZoom() {
+      const n = currentValue;
+      if (n >= 1000000) zoomIndex = 9; else if (n >= 100000) zoomIndex = 8;
+      else if (n >= 10000) zoomIndex = 7; else if (n >= 1000) zoomIndex = 6;
+      else if (n >= 100) zoomIndex = 5; else if (n >= 10) zoomIndex = 4;
+      else if (n >= 1) zoomIndex = 3; else if (n >= 0.1) zoomIndex = 2;
+      else if (n >= 0.01) zoomIndex = 1; else zoomIndex = 0;
     }
-
-    function generateQuizNumber(digitCount) {
-      digitCount = digitCount || quizState.digitCount;
-      const digitArr = [];
-      const places = getActivePlaces(digitCount);
-      for (let i = 0; i < digitCount; i++) {
-        const min = i === 0 ? 1 : 0;
-        digitArr.push(Math.floor(Math.random() * (9 - min + 1)) + min);
+    function renderNumberLine() {
+      const nl = document.getElementById('nlLine');
+      nl.querySelectorAll('.nl-tick,.nl-tick-label,.nl-dot').forEach(e => e.remove());
+      const z = ZOOMS[zoomIndex]; const range = z.step * 10;
+      let vc = Math.max(currentValue, range / 2);
+      let min = vc - range / 2, max = vc + range / 2;
+      if (min < 0) { min = 0; max = range; }
+      document.getElementById('nlZoomInd').style.left = `calc(${(zoomIndex/9)*100}% - 2px)`;
+      document.querySelectorAll('.nl-zoom-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.z)===zoomIndex));
+      const f = Math.floor(min/z.step)*z.step;
+      for (let v = f; v <= max + z.step; v += z.step) {
+        const val = parseFloat(v.toFixed(4));
+        if (val < min || val > max) continue;
+        const pct = ((val-min)/(max-min))*100;
+        const tick = document.createElement('div'); tick.className='nl-tick';
+        if (Math.round(val/z.step)%5===0) tick.classList.add('major');
+        tick.style.left=pct+'%'; nl.appendChild(tick);
+        const lbl = document.createElement('div'); lbl.className='nl-tick-label'; lbl.style.left=pct+'%';
+        lbl.textContent = z.dec<=1 ? (Math.abs(val)>=1000?Math.round(val).toLocaleString():Math.round(val).toString()) : val.toFixed(z.dec-1);
+        nl.appendChild(lbl);
       }
-
-      const numStr = digitArr.join('');
-      const digits = digitArr.map((d, i) => ({
-        char: String(d),
-        place: places[i]
-      }));
-
-      return { numStr, digits, value: parseInt(numStr) };
-    }
-
-    function generateQuizQuestions() {
-      const digitCount = quizState.digitCount;
-      const questions = [];
-      const places = getActivePlaces(digitCount);
-
-      const placeQueue = [];
-      while (placeQueue.length < QUIZ_TOTAL) {
-        const batch = [...places];
-        for (let i = batch.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [batch[i], batch[j]] = [batch[j], batch[i]];
-        }
-        placeQueue.push(...batch);
-      }
-
-      for (let i = 0; i < QUIZ_TOTAL; i++) {
-        const num = generateQuizNumber(digitCount);
-        const targetPlace = placeQueue[i];
-        const digitIndex = num.digits.findIndex(d => d && d.place === targetPlace);
-        questions.push({
-          number: num,
-          highlightIndex: digitIndex,
-          correctAnswer: targetPlace,
-          highlightedDigit: num.digits[digitIndex].char
-        });
-      }
-      return questions;
-    }
-
-    function parseCustomNumber(input) {
-      const cleaned = input.replace(/[,\s]/g, '');
-      const num = parseInt(cleaned);
-      if (isNaN(num) || num < 1 || num > 999999) return null;
-      
-      const str = String(num);
-      const digitCount = str.length;
-      const places = getActivePlaces(digitCount);
-      const digits = str.split('').map((char, i) => ({
-        char: char,
-        place: places[i]
-      }));
-      
-      return { numStr: str, digits, value: num, digitCount };
-    }
-
-    function startQuiz(customNumber) {
-      const activeBtn = document.querySelector('.quiz-range-btn.active');
-      const digitCount = activeBtn ? parseInt(activeBtn.dataset.digits) : 3;
-      
-      quizState = {
-        questions: [],
-        current: 0,
-        score: 0,
-        log: [],
-        active: true,
-        digitCount: digitCount,
-        customNumber: customNumber || null,
-        practiceMode: !!customNumber
-      };
-      
-      document.getElementById('quizOverlay').classList.add('active');
-      document.getElementById('quizSettings').style.display = 'flex';
-      
-      if (customNumber) {
-        quizState.digitCount = customNumber.digitCount;
-        renderPracticeMode(customNumber);
-      } else {
-        quizState.questions = generateQuizQuestions();
-        renderQuizQuestion();
+      const dp = ((currentValue-min)/(max-min))*100;
+      if (dp>=-5 && dp<=105) {
+        const dot=document.createElement('div'); dot.className='nl-dot'; dot.style.left=dp+'%';
+        const dl=document.createElement('div'); dl.className='nl-dot-label';
+        dl.textContent=currentValue.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:3});
+        dot.appendChild(dl); nl.appendChild(dot);
       }
     }
-    
-    function renderPracticeMode(customNum) {
-      const card = document.getElementById('quizCard');
-      
-      document.getElementById('quizProgressFill').style.width = '0%';
-      document.getElementById('quizQuestionNum').textContent = `Practice Mode`;
-      document.getElementById('quizScoreDisplay').textContent = `${quizState.score} of ${quizState.log.length} correct`;
-      
-      const placeToSymbol = {};
-      QUIZ_PLACES.forEach(p => { placeToSymbol[p.name] = p.symbol; });
-      
-      const formatted = customNum.value.toLocaleString();
-      const rawDigits = customNum.digits;
-      
-      let digitsHTML = '<div class="quiz-number-display">';
-      let rawIdx = 0;
-      for (let ci = 0; ci < formatted.length; ci++) {
-        if (formatted[ci] === ',') {
-          digitsHTML += `<div class="quiz-digit separator">,</div>`;
-        } else {
-          const d = rawDigits[rawIdx];
-          const label = placeToSymbol[d.place] || '';
-          digitsHTML += `<div class="quiz-digit tappable" data-idx="${rawIdx}"><span>${d.char}</span><span class="quiz-digit-label">${label}</span></div>`;
-          rawIdx++;
-        }
-      }
-      digitsHTML += '</div>';
-      
-      card.innerHTML = `
-        <div class="quiz-tap-prompt">Tap a digit to find its value</div>
-        ${digitsHTML}
-        <div id="practiceChoicesZone"></div>
-        <div class="quiz-feedback" id="quizFeedback"></div>
-        <div id="quizExpandFeedback"></div>
-        <div class="quiz-new-number-row">
-          <input type="text" class="quiz-new-number-input" id="practiceNewInput" placeholder="New number" />
-          <button class="quiz-new-number-btn" id="practiceNewBtn">Go</button>
-        </div>
-      `;
-      
-      card.querySelectorAll('.quiz-digit.tappable').forEach(el => {
-        el.addEventListener('click', () => {
-          const idx = parseInt(el.dataset.idx);
-          onPracticeDigitTap(customNum, idx);
-        });
-      });
-      
-      document.getElementById('practiceNewBtn').addEventListener('click', () => {
-        launchPracticeFromInput();
-      });
-      document.getElementById('practiceNewInput').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') launchPracticeFromInput();
-      });
-    }
-    
-    function launchPracticeFromInput() {
-      const val = document.getElementById('practiceNewInput').value.trim();
-      if (!val) return;
-      const parsed = parseCustomNumber(val);
-      if (!parsed) {
-        const inp = document.getElementById('practiceNewInput');
-        inp.style.borderColor = '#ef4444';
-        setTimeout(() => { inp.style.borderColor = '#d1d5db'; }, 1500);
-        return;
-      }
-      quizState.customNumber = parsed;
-      quizState.digitCount = parsed.digitCount;
-      renderPracticeMode(parsed);
-    }
-    
-    function onPracticeDigitTap(customNum, digitIndex) {
-      const card = document.getElementById('quizCard');
-      const d = customNum.digits[digitIndex];
-      const digit = parseInt(d.char);
-      
-      const currentQ = {
-        number: customNum,
-        highlightIndex: digitIndex,
-        correctAnswer: d.place,
-        highlightedDigit: d.char
-      };
-      quizState.currentPracticeQ = currentQ;
-      
-      const placeToSymbol = {};
-      QUIZ_PLACES.forEach(p => { placeToSymbol[p.name] = p.symbol; });
-      
-      card.querySelectorAll('.quiz-digit.tappable').forEach(el => {
-        el.classList.remove('highlighted');
-        el.style.pointerEvents = 'none';
-      });
-      const tappedEl = card.querySelector(`.quiz-digit.tappable[data-idx="${digitIndex}"]`);
-      if (tappedEl) tappedEl.classList.add('highlighted');
-      
-      document.getElementById('quizFeedback').textContent = '';
-      document.getElementById('quizFeedback').className = 'quiz-feedback';
-      document.getElementById('quizExpandFeedback').innerHTML = '';
-      
-      const placeMultipliers = {
-        'Ones': 1, 'Tens': 10, 'Hundreds': 100,
-        'Thousands': 1000, 'Ten Thousands': 10000, 'Hundred Thousands': 100000
-      };
-      const activePlaces = getActivePlaces(quizState.digitCount);
-      let choicePlaces = [...activePlaces];
-      const allPlaceNames = PLACE_ORDER;
-      const highestActive = activePlaces[0];
-      const higherIdx = allPlaceNames.indexOf(highestActive) - 1;
-      if (higherIdx >= 0) {
-        choicePlaces = [allPlaceNames[higherIdx], ...choicePlaces];
-      }
-      
-      let finalChoices = choicePlaces.map(placeName => {
-        const val = digit * placeMultipliers[placeName];
-        return { name: placeName, symbol: val.toLocaleString() };
-      });
-      
-      for (let i = finalChoices.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [finalChoices[i], finalChoices[j]] = [finalChoices[j], finalChoices[i]];
-      }
-      
-      const zone = document.getElementById('practiceChoicesZone');
-      zone.innerHTML = `
-        <button class="quiz-expand-btn" id="quizHintBtn">💥 Expand</button>
-        <div id="quizExpandZone"></div>
-        <div class="quiz-choices">
-          ${finalChoices.map(c => `<button class="quiz-choice" data-answer="${c.name}">${c.symbol}</button>`).join('')}
-        </div>
-      `;
-      
-      document.getElementById('quizHintBtn').addEventListener('click', () => {
-        document.getElementById('quizExpandZone').innerHTML = buildExpandedForm(currentQ);
-        document.getElementById('quizHintBtn').style.display = 'none';
-      });
-      
-      zone.querySelectorAll('.quiz-choice').forEach(btn => {
-        btn.addEventListener('click', () => handlePracticeAnswer(btn, currentQ, customNum));
-      });
-    }
-    
-    function handlePracticeAnswer(btn, q, customNum) {
-      const answer = btn.dataset.answer;
-      const correct = answer === q.correctAnswer;
-      const feedback = document.getElementById('quizFeedback');
-      
-      document.querySelectorAll('#practiceChoicesZone .quiz-choice').forEach(b => {
-        b.style.pointerEvents = 'none';
-        if (b.dataset.answer === q.correctAnswer) b.classList.add('correct');
-      });
-      
-      const hintBtn = document.getElementById('quizHintBtn');
-      if (hintBtn) hintBtn.style.display = 'none';
-      
-      if (correct) {
-        quizState.score++;
-        btn.classList.add('correct');
-        const encouragements = ['Nice!', 'Got it!', 'Yes!', 'Correct!', 'Great job!', 'You know it!'];
-        feedback.textContent = encouragements[Math.floor(Math.random() * encouragements.length)];
-        feedback.className = 'quiz-feedback correct-fb';
-      } else {
-        btn.classList.add('wrong');
-        const placeMultipliers = {
-          'Ones': 1, 'Tens': 10, 'Hundreds': 100,
-          'Thousands': 1000, 'Ten Thousands': 10000, 'Hundred Thousands': 100000
-        };
-        const correctValue = parseInt(q.highlightedDigit) * placeMultipliers[q.correctAnswer];
-        feedback.textContent = `It's ${correctValue.toLocaleString()}`;
-        feedback.className = 'quiz-feedback wrong-fb';
-      }
-      
-      document.getElementById('quizExpandFeedback').innerHTML = buildExpandedForm(q);
-      
-      const hintUsed = !!document.getElementById('quizExpandZone').innerHTML;
-      quizState.log.push({
-        number: q.number.numStr,
-        digit: q.highlightedDigit,
-        correctAnswer: q.correctAnswer,
-        studentAnswer: answer,
-        correct,
-        hintUsed
-      });
-      
-      document.getElementById('quizScoreDisplay').textContent = `${quizState.score} of ${quizState.log.length} correct`;
-      
-      setTimeout(() => {
-        const card = document.getElementById('quizCard');
-        card.querySelectorAll('.quiz-digit.tappable').forEach(el => {
-          el.style.pointerEvents = '';
-        });
-      }, 600);
-    }
 
-    function closeQuiz(forceClose) {
-      if (!forceClose && quizState.practiceMode && quizState.log.length > 0) {
-        showQuizResults();
-        return;
-      }
-      quizState.active = false;
-      document.getElementById('quizOverlay').classList.remove('active');
-    }
+    // ═══════════════════════════════════════
+    // EVENTS
+    // ═══════════════════════════════════════
+    document.querySelectorAll('.op-btn').forEach(btn =>
+      btn.addEventListener('click', () => slideDigits(parseInt(btn.dataset.places))));
 
-    function renderQuizQuestion() {
-      const q = quizState.questions[quizState.current];
-      const card = document.getElementById('quizCard');
-      
-      document.getElementById('quizProgressFill').style.width = ((quizState.current / QUIZ_TOTAL) * 100) + '%';
-      document.getElementById('quizQuestionNum').textContent = `Question ${quizState.current + 1} of ${QUIZ_TOTAL}`;
-      document.getElementById('quizScoreDisplay').textContent = `${quizState.score} correct`;
-
-      let digitsHTML = '<div class="quiz-number-display">';
-      const placeToSymbol = {};
-      QUIZ_PLACES.forEach(p => { placeToSymbol[p.name] = p.symbol; });
-      
-      const numVal = q.number.value;
-      const formatted = numVal.toLocaleString();
-      const rawDigits = q.number.digits;
-      
-      let rawIdx = 0;
-      for (let ci = 0; ci < formatted.length; ci++) {
-        if (formatted[ci] === ',') {
-          digitsHTML += `<div class="quiz-digit separator">,</div>`;
-        } else {
-          const d = rawDigits[rawIdx];
-          const hl = rawIdx === q.highlightIndex ? ' highlighted' : '';
-          const label = placeToSymbol[d.place] || '';
-          digitsHTML += `<div class="quiz-digit${hl}"><span>${d.char}</span><span class="quiz-digit-label">${label}</span></div>`;
-          rawIdx++;
-        }
-      }
-      digitsHTML += '</div>';
-
-      const activePlaces = getActivePlaces(quizState.digitCount);
-      const digit = parseInt(q.highlightedDigit);
-      
-      const placeMultipliers = {
-        'Ones': 1, 'Tens': 10, 'Hundreds': 100,
-        'Thousands': 1000, 'Ten Thousands': 10000, 'Hundred Thousands': 100000
-      };
-      
-      let choicePlaces = [...activePlaces];
-      const allPlaceNames = PLACE_ORDER;
-      const highestActive = activePlaces[0];
-      const higherIdx = allPlaceNames.indexOf(highestActive) - 1;
-      if (higherIdx >= 0) {
-        choicePlaces = [allPlaceNames[higherIdx], ...choicePlaces];
-      }
-      
-      let finalChoices = choicePlaces.map(placeName => {
-        const val = digit * placeMultipliers[placeName];
-        return { name: placeName, symbol: val.toLocaleString() };
-      });
-      
-      for (let i = finalChoices.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [finalChoices[i], finalChoices[j]] = [finalChoices[j], finalChoices[i]];
-      }
-
-      let choicesHTML = '<div class="quiz-choices">';
-      finalChoices.forEach(c => {
-        choicesHTML += `<button class="quiz-choice" data-answer="${c.name}">${c.symbol}</button>`;
-      });
-      choicesHTML += '</div>';
-
-      card.innerHTML = `
-        <div class="quiz-prompt">What is the place value of the <span style="color:#f59e0b;font-weight:900">highlighted</span> digit?</div>
-        ${digitsHTML}
-        <button class="quiz-expand-btn" id="quizHintBtn">💥 Expand</button>
-        <div id="quizExpandZone"></div>
-        ${choicesHTML}
-        <div class="quiz-feedback" id="quizFeedback"></div>
-        <div id="quizExpandFeedback"></div>
-      `;
-
-      document.getElementById('quizHintBtn').addEventListener('click', () => {
-        const zone = document.getElementById('quizExpandZone');
-        zone.innerHTML = buildExpandedForm(q);
-        document.getElementById('quizHintBtn').style.display = 'none';
-      });
-
-      card.querySelectorAll('.quiz-choice').forEach(btn => {
-        btn.addEventListener('click', () => handleQuizAnswer(btn));
-      });
-    }
-
-    function buildExpandedForm(q) {
-      const placeMultipliers = {
-        'Ones': 1, 'Tens': 10, 'Hundreds': 100,
-        'Thousands': 1000, 'Ten Thousands': 10000, 'Hundred Thousands': 100000
-      };
-      const parts = [];
-      q.number.digits.forEach((d, i) => {
-        const digit = parseInt(d.char);
-        if (digit === 0) return;
-        const val = digit * placeMultipliers[d.place];
-        parts.push({
-          display: val.toLocaleString(),
-          isAnswer: i === q.highlightIndex
-        });
-      });
-      
-      let html = '<div class="quiz-expanded-form">';
-      parts.forEach((p, i) => {
-        if (i > 0) html += '<span class="quiz-expanded-plus">+</span>';
-        html += `<span class="quiz-expanded-part${p.isAnswer ? ' is-answer' : ''}">${p.display}</span>`;
-      });
-      html += '</div>';
-      return html;
-    }
-
-    function handleQuizAnswer(btn) {
-      const q = quizState.questions[quizState.current];
-      const answer = btn.dataset.answer;
-      const correct = answer === q.correctAnswer;
-      const feedback = document.getElementById('quizFeedback');
-
-      document.querySelectorAll('.quiz-choice').forEach(b => {
-        b.style.pointerEvents = 'none';
-        if (b.dataset.answer === q.correctAnswer) b.classList.add('correct');
-      });
-
-      const hintBtn = document.getElementById('quizHintBtn');
-      if (hintBtn) hintBtn.style.display = 'none';
-
-      if (correct) {
-        quizState.score++;
-        btn.classList.add('correct');
-        const encouragements = ['Nice!', 'Got it!', 'Yes!', 'Correct!', 'Great job!', 'You know it!'];
-        feedback.textContent = encouragements[Math.floor(Math.random() * encouragements.length)];
-        feedback.className = 'quiz-feedback correct-fb';
-      } else {
-        btn.classList.add('wrong');
-        const placeMultipliers = {
-          'Ones': 1, 'Tens': 10, 'Hundreds': 100,
-          'Thousands': 1000, 'Ten Thousands': 10000, 'Hundred Thousands': 100000
-        };
-        const correctValue = parseInt(q.highlightedDigit) * placeMultipliers[q.correctAnswer];
-        feedback.textContent = `It's ${correctValue.toLocaleString()}`;
-        feedback.className = 'quiz-feedback wrong-fb';
-      }
-
-      const expandZone = document.getElementById('quizExpandFeedback');
-      expandZone.innerHTML = buildExpandedForm(q);
-
-      const hintUsed = !document.getElementById('quizExpandZone').innerHTML ? false : true;
-      quizState.log.push({
-        number: q.number.numStr,
-        digit: q.highlightedDigit,
-        correctAnswer: q.correctAnswer,
-        studentAnswer: answer,
-        correct,
-        hintUsed
-      });
-
-      document.getElementById('quizScoreDisplay').textContent = `${quizState.score} correct`;
-
-      const nextBtn = document.createElement('button');
-      nextBtn.className = 'quiz-next-btn';
-      nextBtn.textContent = quizState.current + 1 >= QUIZ_TOTAL ? 'See Results ➜' : 'Next ➜';
-      document.getElementById('quizExpandFeedback').after(nextBtn);
-      nextBtn.addEventListener('click', () => {
-        quizState.current++;
-        if (quizState.current >= QUIZ_TOTAL) {
-          showQuizResults();
-        } else {
-          renderQuizQuestion();
-        }
-      });
-    }
-
-    function showQuizResults() {
-      const total = quizState.practiceMode ? quizState.log.length : QUIZ_TOTAL;
-      const pct = total > 0 ? Math.round((quizState.score / total) * 100) : 0;
-      document.getElementById('quizProgressFill').style.width = '100%';
-      document.getElementById('quizQuestionNum').textContent = 'Complete!';
-      
-      let emoji, message;
-      if (pct >= 80) {
-        emoji = '🌟';
-        message = `${pct}% — You crushed it! You really know your place values!`;
-      } else if (pct >= 60) {
-        emoji = '💪';
-        message = `${pct}% — Nice work! Let's keep practicing to get even stronger.`;
-      } else if (pct >= 40) {
-        emoji = '📈';
-        message = `${pct}% — You're building your skills! Try again to see your growth.`;
-      } else {
-        emoji = '🌱';
-        message = `${pct}% — Every try helps you grow! Let's practice some more.`;
-      }
-
-      const card = document.getElementById('quizCard');
-      card.innerHTML = `
-        <div class="quiz-results">
-          <div class="quiz-results-emoji">${emoji}</div>
-          <div class="quiz-results-score">${quizState.score} / ${total}</div>
-          <div class="quiz-results-label">${pct}% Accuracy</div>
-          <div class="quiz-results-message">${message}</div>
-          <div class="quiz-results-btns">
-            <button class="quiz-results-btn primary" id="quizRetryBtn">Try Again</button>
-            <button class="quiz-results-btn secondary" id="quizDataBtn">View Data</button>
-            <button class="quiz-results-btn secondary" id="quizDoneBtn">Done</button>
-          </div>
-        </div>
-      `;
-
-      document.getElementById('quizRetryBtn').addEventListener('click', () => {
-        startQuiz(quizState.customNumber);
-      });
-      document.getElementById('quizDoneBtn').addEventListener('click', () => closeQuiz(true));
-      document.getElementById('quizDataBtn').addEventListener('click', showQuizData);
-    }
-
-    function showQuizData() {
-      const overlay = document.getElementById('quizDataOverlay');
-      const card = document.getElementById('quizDataCard');
-      const total = quizState.log.length;
-      const pct = total > 0 ? Math.round((quizState.score / total) * 100) : 0;
-
-      let rows = quizState.log.map((entry, i) => {
-        const cls = entry.correct ? 'correct-row' : 'wrong-row';
-        const icon = entry.correct ? '✓' : '✗';
-        const hint = entry.hintUsed ? '💡' : '';
-        return `<tr class="${cls}">
-          <td>${i + 1}</td>
-          <td>${entry.number}</td>
-          <td>${entry.digit}</td>
-          <td>${entry.correctAnswer}</td>
-          <td>${entry.studentAnswer}</td>
-          <td>${hint}</td>
-          <td>${icon}</td>
-        </tr>`;
-      }).join('');
-
-      const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-      card.innerHTML = `
-        <h3>Quiz Data — ${today}</h3>
-        <p style="color:#94a3b8;font-size:13px;margin-bottom:12px;">Score: ${quizState.score}/${QUIZ_TOTAL} (${pct}%)</p>
-        <table class="quiz-data-table">
-          <thead><tr><th>#</th><th>Number</th><th>Digit</th><th>Correct</th><th>Response</th><th>Hint</th><th></th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-        <button class="quiz-data-copy" id="quizCopyBtn">Copy Data for IEP Log</button>
-        <button class="quiz-data-close" id="quizDataCloseBtn">Close</button>
-      `;
-
-      overlay.classList.add('active');
-
-      document.getElementById('quizDataCloseBtn').addEventListener('click', () => {
-        overlay.classList.remove('active');
-      });
-
-      document.getElementById('quizCopyBtn').addEventListener('click', () => {
-        let text = `Place Value Quiz — ${today}\n`;
-        text += `Score: ${quizState.score}/${QUIZ_TOTAL} (${pct}%)\n`;
-        text += `Goal: Identify place value of a specific digit in whole numbers\n`;
-        text += `Setting: ${quizState.digitCount}-digit numbers\n\n`;
-        text += `#\tNumber\tDigit\tCorrect Answer\tStudent Answer\tHint Used\tResult\n`;
-        quizState.log.forEach((entry, i) => {
-          text += `${i+1}\t${entry.number}\t${entry.digit}\t${entry.correctAnswer}\t${entry.studentAnswer}\t${entry.hintUsed ? 'Yes' : 'No'}\t${entry.correct ? 'Correct' : 'Incorrect'}\n`;
-        });
-        
-        const wrongOnes = quizState.log.filter(e => !e.correct);
-        if (wrongOnes.length > 0) {
-          text += `\nError Analysis:\n`;
-          const errorsByPlace = {};
-          wrongOnes.forEach(e => {
-            if (!errorsByPlace[e.correctAnswer]) errorsByPlace[e.correctAnswer] = [];
-            errorsByPlace[e.correctAnswer].push(e.studentAnswer);
-          });
-          for (const [place, answers] of Object.entries(errorsByPlace)) {
-            text += `- ${place}: missed ${answers.length}x (answered: ${answers.join(', ')})\n`;
-          }
-        }
-
-        navigator.clipboard.writeText(text).then(() => {
-          const btn = document.getElementById('quizCopyBtn');
-          btn.textContent = 'Copied!';
-          btn.style.background = '#34d399';
-          setTimeout(() => { btn.textContent = 'Copy Data for IEP Log'; btn.style.background = '#3b82f6'; }, 2000);
-        });
-      });
-    }
-
-    document.getElementById('quizBtn').addEventListener('click', () => startQuiz());
-    document.getElementById('quizCloseBtn').addEventListener('click', closeQuiz);
-    
-    document.querySelectorAll('.quiz-range-btn[data-digits]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.quiz-range-btn[data-digits]').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        document.getElementById('quizCustomInput').value = '';
-        if (quizState.active && quizState.current === 0) {
-          startQuiz();
-        }
-      });
+    document.getElementById('modeDigits').addEventListener('click', () => {
+      mode = 'digits';
+      document.getElementById('modeDigits').classList.add('active');
+      document.getElementById('modeDecimal').classList.remove('active');
+      setValue(currentValue);
     });
-    
-    const quizCustomInput = document.getElementById('quizCustomInput');
-    const quizCustomBtn = document.getElementById('quizCustomBtn');
-    
-    function launchCustomQuiz() {
-      const val = quizCustomInput.value.trim();
-      if (!val) return;
-      const parsed = parseCustomNumber(val);
-      if (!parsed) {
-        quizCustomInput.style.borderColor = '#ef4444';
-        setTimeout(() => { quizCustomInput.style.borderColor = '#d1d5db'; }, 1500);
-        return;
-      }
-      document.querySelectorAll('.quiz-range-btn[data-digits]').forEach(b => b.classList.remove('active'));
-      startQuiz(parsed);
-    }
-    
-    quizCustomBtn.addEventListener('click', launchCustomQuiz);
-    quizCustomInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') launchCustomQuiz();
+    document.getElementById('modeDecimal').addEventListener('click', () => {
+      mode = 'decimal';
+      document.getElementById('modeDecimal').classList.add('active');
+      document.getElementById('modeDigits').classList.remove('active');
+      setValue(currentValue);
     });
-    quizCustomInput.addEventListener('focus', () => {
-      quizCustomInput.style.borderColor = 'var(--accent)';
-    });
-    quizCustomInput.addEventListener('blur', () => {
-      quizCustomInput.style.borderColor = '#d1d5db';
+    document.getElementById('zerosBtn').addEventListener('click', () => {
+      showZeros = !showZeros;
+      document.getElementById('zerosBtn').classList.toggle('active', showZeros);
+      drawDigits(false);
     });
 
+    document.getElementById('gridArea').addEventListener('click', () => {
+      if (animating) return;
+      document.getElementById('editOverlay').classList.add('active');
+      const inp = document.getElementById('editInput');
+      inp.value = currentValue > 0 ? currentValue.toString() : '';
+      inp.focus(); inp.select();
+    });
+    function confirmEdit() {
+      const num = parseFloat(document.getElementById('editInput').value);
+      if (isNaN(num) || num < 0 || num > 9999999.999) return;
+      document.getElementById('editOverlay').classList.remove('active');
+      setValue(num);
+    }
+    document.getElementById('editConfirm').addEventListener('click', confirmEdit);
+    document.getElementById('editCancel').addEventListener('click', () => document.getElementById('editOverlay').classList.remove('active'));
+    document.getElementById('editInput').addEventListener('keydown', (e) => {
+      if (e.key==='Enter') confirmEdit(); else if (e.key==='Escape') document.getElementById('editOverlay').classList.remove('active');
+    });
+    document.getElementById('editOverlay').addEventListener('click', (e) => {
+      if (e.target.id==='editOverlay') document.getElementById('editOverlay').classList.remove('active');
+    });
+
+    document.getElementById('nlZoomBar').addEventListener('click', (e) => {
+      const rect=e.currentTarget.getBoundingClientRect();
+      zoomIndex=Math.max(0,Math.min(9,Math.round(((e.clientX-rect.left)/rect.width)*9)));
+      renderNumberLine();
+    });
+    document.querySelectorAll('.nl-zoom-btn').forEach(b =>
+      b.addEventListener('click', () => { zoomIndex=parseInt(b.dataset.z); renderNumberLine(); }));
+
+    window.addEventListener('resize', () => { if (!animating) { drawBackground(); renderNumberLine(); } });
+
+    // ═══════════════════════════════════════
+    // INIT
+    // ═══════════════════════════════════════
+    setValue(3.14);
   </script>
 </body>
 </html>
