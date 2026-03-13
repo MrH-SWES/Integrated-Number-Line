@@ -109,8 +109,6 @@
       text-align: center;
       line-height: 1;
       z-index: 2;
-      /* THE KEY: smooth transition on left position */
-      transition: left 0.5s cubic-bezier(0.4, 0.0, 0.2, 1);
     }
     .floating-digit.ghost {
       color: var(--ghost-color);
@@ -231,16 +229,6 @@
     // ═══════════════════════════════════════
     // GRID MODEL
     // ═══════════════════════════════════════
-    // 10 cells indexed 0–9.
-    // Cell 0 = Millions, Cell 9 = Thousandths.
-    // In digits-slide mode, decimal is always between cell 6 & 7.
-    // In decimal-slide mode, decimal position moves.
-    //
-    // The number's digits (always 10: 7 whole padded + 3 decimal)
-    // are placed into cells. We track which cell each digit occupies.
-    // On ×10 (digits-slide), each digit's cell index decreases by 1
-    // and we smoothly animate the `left` CSS property.
-
     const NUM_CELLS = 10;
     const CELL_LABELS = ['M','100K','10K','1,000','100','10','1','0.1','0.01','0.001'];
 
@@ -250,25 +238,13 @@
     let zoomIndex = 3;
     let animating = false;
 
-    // The 10-char representation of the entered number
-    // Index 0=M digit, 6=ones digit, 7=tenths, 9=thousandths
     let rawDigits = [];
-
-    // In digits-slide: which cell does rawDigits[0] sit in?
-    // Initially rawDigits[0] → cell 0, rawDigits[6] → cell 6, etc.
-    // After ×10, rawDigits[0] → cell -1 (off-screen left), rawDigits[6] → cell 5, etc.
-    // We track this as `baseCell`: rawDigits[i] is in cell (baseCell + i)
     let baseCell = 0;
-
-    // In decimal-slide: decimal is after cell `decAfterCell`
-    // Starts at 4 (between 5th and 6th box) so digits are centered
     let decAfterCell = 4;
-    // Offset so rawDigits map correctly: cell c shows rawDigits[c + decDigitOffset]
     let decDigitOffset = 0;
 
-    // Layout measurements
     let cellW = 0, cellH = 0, cellGap = 4, decGap = 12;
-    let cellCenters = []; // x-center of each cell
+    let cellCenters = []; 
     let cellTops = [];
     let fontSize = 0;
     let gridLeft = 0, gridTop = 0;
@@ -307,32 +283,29 @@
       const maxW = area.offsetWidth - 24;
       const maxH = area.offsetHeight * 0.5;
 
-      // Total width: 10 cells + 9 gaps + 1 decimal gap
-      // cellW * 10 + cellGap * 9 + decGap = maxW
       cellW = Math.min((maxW - cellGap * 9 - decGap) / 10, maxH * 0.95, 90);
       cellW = Math.max(cellW, 36);
       cellH = cellW;
       fontSize = cellW * 0.62;
 
-      // Compute cell centers
       const totalW = cellW * 10 + cellGap * 9 + decGap;
       const startX = (area.offsetWidth - totalW) / 2;
       const startY = (area.offsetHeight - cellH) / 2 - fontSize * 0.15;
 
       cellCenters = [];
       let x = startX;
-      const decBetween = (mode === 'digits') ? 6 : 4; // decimal mode: gap always at initial center
+      const decBetween = (mode === 'digits') ? 6 : 4; 
       for (let c = 0; c < NUM_CELLS; c++) {
         cellCenters.push(x + cellW / 2);
         x += cellW + cellGap;
-        if (c === decBetween) x += decGap; // extra gap for decimal
+        if (c === decBetween) x += decGap; 
       }
       gridLeft = startX;
       gridTop = startY;
     }
 
     // ═══════════════════════════════════════
-    // DRAW STATIC ELEMENTS (cells, labels, decimal dot)
+    // DRAW STATIC ELEMENTS
     // ═══════════════════════════════════════
     function drawBackground() {
       const container = document.getElementById('gridContainer');
@@ -345,7 +318,6 @@
 
       const decBetween = (mode === 'digits') ? 6 : decAfterCell;
 
-      // Draw cells
       for (let c = 0; c < NUM_CELLS; c++) {
         const cell = document.createElement('div');
         cell.className = 'bg-cell';
@@ -355,7 +327,6 @@
         cell.style.height = cellH + 'px';
         container.appendChild(cell);
 
-        // Label
         let labelIdx;
         if (mode === 'decimal') {
           labelIdx = c - decAfterCell + 6;
@@ -374,7 +345,6 @@
         }
       }
 
-      // Decimal dot
       const dotX = (cellCenters[decBetween] + cellW / 2 + cellCenters[decBetween + 1] - cellW / 2) / 2;
       const dot = document.createElement('div');
       dot.id = 'decimalDot';
@@ -385,7 +355,6 @@
       dot.style.transform = 'translateX(-50%)';
       container.appendChild(dot);
 
-      // Digit elements
       drawDigits(false);
     }
 
@@ -394,12 +363,10 @@
     // ═══════════════════════════════════════
     function drawDigits(transitionOn) {
       const container = document.getElementById('gridContainer');
-      // Remove old digits
       container.querySelectorAll('.floating-digit').forEach(el => el.remove());
 
       const decBetween = (mode === 'digits') ? 6 : decAfterCell;
 
-      // Determine significance
       let dispDigits = [];
       for (let c = 0; c < NUM_CELLS; c++) {
         const ri = (mode === 'digits') ? (c + baseCell) : (c + decDigitOffset);
@@ -455,11 +422,11 @@
     // SLIDE DIGITS
     // ═══════════════════════════════════════
     function slideDigits(places) {
-      // places: +1 = ×10 (slide left), -1 = ÷10 (slide right)
       if (animating) return;
 
       if (mode === 'digits') {
         const newBase = baseCell + places;
+        
         // Validate: check any sig digit still on screen
         let anyVis = false;
         for (let c = 0; c < NUM_CELLS; c++) {
@@ -480,49 +447,60 @@
 
         animating = true;
 
-        // Get current digit elements
         const container = document.getElementById('gridContainer');
         const digitEls = container.querySelectorAll('.floating-digit');
+        calcLayout(); 
 
-        // Each digit needs to move `places` cells to the LEFT
-        // That means its new x = cellCenters[currentCell - places]
-        // But we need to recalculate where they'd go
-        calcLayout(); // ensure cellCenters fresh
+        const totalHops = Math.abs(places);
+        const direction = places > 0 ? 1 : -1;
 
+        // Initialize virtual cell tracking for sequential hops
         digitEls.forEach(el => {
-          const currentCell = parseInt(el.dataset.cell);
-          const targetCell = currentCell - places;
-
-          el.style.transition = 'left 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
-
-          if (targetCell >= 0 && targetCell < NUM_CELLS) {
-            el.style.left = (cellCenters[targetCell] - cellW / 2) + 'px';
-          } else if (targetCell < 0) {
-            // Slide off left
-            el.style.left = (cellCenters[0] - cellW / 2 - cellW * Math.abs(targetCell)) + 'px';
-            el.style.opacity = '0';
-          } else {
-            // Slide off right
-            el.style.left = (cellCenters[NUM_CELLS - 1] + cellW / 2 + cellW * (targetCell - NUM_CELLS + 1)) + 'px';
-            el.style.opacity = '0';
-          }
+          el.dataset.vCell = el.dataset.cell;
         });
 
-        setTimeout(() => {
-          baseCell = newBase;
-          currentValue = parseFloat(computeValue().toFixed(4));
-          drawDigits(false);
-          autoZoom();
-          renderNumberLine();
-          animating = false;
-        }, 520);
+        function doOneDigitHop(hopNum) {
+          digitEls.forEach(el => {
+            const currentCell = parseInt(el.dataset.vCell);
+            const targetCell = currentCell - direction;
+            el.dataset.vCell = targetCell;
+
+            el.style.transition = 'left 0.32s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.32s';
+
+            if (targetCell >= 0 && targetCell < NUM_CELLS) {
+              el.style.left = (cellCenters[targetCell] - cellW / 2) + 'px';
+              el.style.opacity = '1';
+            } else if (targetCell < 0) {
+              el.style.left = (cellCenters[0] - cellW / 2 - cellW * Math.abs(targetCell)) + 'px';
+              el.style.opacity = '0';
+            } else {
+              el.style.left = (cellCenters[NUM_CELLS - 1] + cellW / 2 + cellW * (targetCell - NUM_CELLS + 1)) + 'px';
+              el.style.opacity = '0';
+            }
+          });
+
+          if (hopNum + 1 < totalHops) {
+            // Wait for transition + a small 60ms pause to match decimal hop pacing
+            setTimeout(() => doOneDigitHop(hopNum + 1), 380);
+          } else {
+            setTimeout(() => {
+              baseCell = newBase;
+              currentValue = parseFloat(computeValue().toFixed(4));
+              drawDigits(false);
+              autoZoom();
+              renderNumberLine();
+              animating = false;
+            }, 320); // wait for final transition to finish
+          }
+        }
+
+        doOneDigitHop(0);
 
       } else {
         // Decimal slides mode — individual hops, one per place
         const totalHops = Math.abs(places);
-        const direction = places > 0 ? 1 : -1; // +1 = right, -1 = left
+        const direction = places > 0 ? 1 : -1; 
 
-        // Validate final position
         const finalDec = decAfterCell + places;
         if (finalDec < 0 || finalDec >= NUM_CELLS - 1) return;
 
@@ -535,8 +513,6 @@
           const oldDec = decAfterCell;
           const nextDec = oldDec + direction;
 
-          // Target x: midpoint between cell nextDec right edge and cell nextDec+1 left edge
-          // Cell centers and widths are already computed, don't recalc
           const targetX = (cellCenters[nextDec] + cellW / 2 + cellCenters[nextDec + 1] - cellW / 2) / 2;
 
           const startX = parseFloat(dot.style.left);
@@ -549,10 +525,8 @@
           function step(now) {
             const elapsed = now - t0;
             const t = Math.min(elapsed / hopDuration, 1);
-            // Smooth ease
             const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
             const x = startX + (endX - startX) * ease;
-            // Downward parabola: positive arc pushes DOWN
             const arc = arcHeight * 4 * t * (1 - t);
             dot.style.left = x + 'px';
             dot.style.top = (startY + arc) + 'px';
@@ -560,13 +534,11 @@
             if (t < 1) {
               requestAnimationFrame(step);
             } else {
-              // Land this hop
               dot.style.left = endX + 'px';
               dot.style.top = startY + 'px';
               decAfterCell = nextDec;
 
               if (hopNum + 1 < totalHops) {
-                // Small pause between hops
                 setTimeout(() => doOneHop(hopNum + 1), 60);
               } else {
                 finishHops();
@@ -595,9 +567,6 @@
       currentValue = parseFloat(Math.max(0, Math.min(num, 9999999.999)).toFixed(4));
       rawDigits = valueToDigits(currentValue);
       baseCell = 0;
-      // In decimal mode, decimal starts between cells 4 & 5 (centered)
-      // rawDigits[6] = ones digit should be in cell 4
-      // So decDigitOffset = 6 - 4 = 2
       decAfterCell = 4;
       decDigitOffset = 2;
       drawBackground();
